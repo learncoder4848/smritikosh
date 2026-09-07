@@ -7,7 +7,7 @@ import types
 import numpy as np
 import pytest
 
-from smritikosh.embedder import DEFAULT_MODEL, SentenceTransformerEmbedder
+from smritikosh.adapters.embedder import DEFAULT_MODEL, SentenceTransformerEmbedder
 
 
 class FakeSentenceTransformer:

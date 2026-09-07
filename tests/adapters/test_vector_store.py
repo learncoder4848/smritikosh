@@ -5,7 +5,7 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from smritikosh.vector_store import DuckDBVectorStore
+from smritikosh.adapters.vector_store import DuckDBVectorStore
 
 
 @pytest.fixture

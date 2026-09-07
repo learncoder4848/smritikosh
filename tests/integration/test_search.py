@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from smritikosh.embedder import SentenceTransformerEmbedder
-from smritikosh.vector_store import DuckDBVectorStore
+from smritikosh.adapters.embedder import SentenceTransformerEmbedder
+from smritikosh.adapters.vector_store import DuckDBVectorStore
 
 CSV_SNIPPET = '''
 def load_orders(path: str) -> list[dict]:

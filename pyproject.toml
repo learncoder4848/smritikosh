@@ -30,6 +30,12 @@ pytest = "^9.1.1"
 ruff = "^0.16.6"
 pre-commit = "^4.6.2"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# importlib mode lets test files share a basename across directories, e.g. a unit
+# tests/test_search.py alongside tests/integration/test_search.py.
+addopts = "--import-mode=importlib"
+
 [tool.ruff]
 line-length = 88
 target-version = "py310"
