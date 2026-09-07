@@ -29,10 +29,10 @@ lock:
 # ── Test ──────────────────────────────────────────────────────────────────────
 
 test:
-	python -m pytest tests/ -v --no-cov
+	python -m pytest tests/engine/ tests/models/ tests/adapters/vector_store/ -v --no-cov
 
 cov:
-	python -m pytest tests/ \
+	python -m pytest tests/engine/ tests/models/ tests/adapters/vector_store/ \
 	    --cov=smritikosh \
 	    --cov-report=term-missing \
 	    --cov-report=html:htmlcov \

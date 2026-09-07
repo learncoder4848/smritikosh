@@ -5,7 +5,6 @@ import asyncio
 from smritikosh.engine import PipelineContext, sm
 from smritikosh.engine._context import _COMPONENT_PATH
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

@@ -65,7 +65,7 @@ class MemoizationStore:
         )
 
     def delete_component(self, fn_name: str, item_key: str) -> None:
-        """Delete all memo entries whose ``component_path`` starts with ``fn_name/item_key``.
+        """Delete all memo entries whose path begins with ``fn_name/item_key``.
 
         Parameters
         ----------

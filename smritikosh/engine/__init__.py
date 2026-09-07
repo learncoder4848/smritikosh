@@ -20,25 +20,11 @@ should not be imported directly.
 """
 
 from smritikosh.engine._batch import AsyncWrapper, BatchGatherer, RetryWithSmallerBatch
-from smritikosh.engine._context import (
-    ContextKey,
-    PipelineContext,
-    _ACTIVE_CONTEXT,
-    _COMPONENT_PATH,
-    use_context,
-)
+from smritikosh.engine._context import ContextKey, PipelineContext, use_context
 from smritikosh.engine._decorators import FunctionDecorator
-from smritikosh.engine._engine import IncrementalEngine, _component_context, sm
-from smritikosh.engine._fingerprint import (
-    _compute_context_fingerprint,
-    _compute_input_fingerprint,
-    _compute_logic_fingerprint,
-    _hash_bytes,
-    _tracked_logic_fps,
-)
+from smritikosh.engine._engine import IncrementalEngine, sm
 from smritikosh.engine._memo import (
     MemoizationStore,
-    _memo_store,
     get_memo_store,
     initialize_memo_store,
 )

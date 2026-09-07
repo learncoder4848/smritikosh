@@ -2,9 +2,8 @@
 
 import pytest
 
-from smritikosh.engine import MemoizationStore, get_memo_store, initialize_memo_store
 import smritikosh.engine._memo as _memo_module
-
+from smritikosh.engine import MemoizationStore, get_memo_store
 
 # ---------------------------------------------------------------------------
 # MemoizationStore.get / set

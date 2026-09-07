@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from smritikosh.engine._batch import AsyncWrapper
 from smritikosh.engine._context import _COMPONENT_PATH
 from smritikosh.engine._decorators import FunctionDecorator
-
 
 # ---------------------------------------------------------------------------
 # Component-path context manager

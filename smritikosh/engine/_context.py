@@ -14,7 +14,7 @@ T = TypeVar("T")
 # ---------------------------------------------------------------------------
 
 #: Active PipelineContext for the current async task tree.
-_ACTIVE_CONTEXT: ContextVar["PipelineContext | None"] = ContextVar(
+_ACTIVE_CONTEXT: ContextVar[PipelineContext | None] = ContextVar(
     "_ACTIVE_CONTEXT", default=None
 )
 
@@ -106,7 +106,7 @@ class PipelineContext:
 
     # -- context managers ------------------------------------------------------
 
-    def __enter__(self) -> "PipelineContext":
+    def __enter__(self) -> PipelineContext:
         self._token = _ACTIVE_CONTEXT.set(self)
         return self
 
@@ -114,7 +114,7 @@ class PipelineContext:
         _ACTIVE_CONTEXT.reset(self._token)
         self._token = None
 
-    async def __aenter__(self) -> "PipelineContext":
+    async def __aenter__(self) -> PipelineContext:
         return self.__enter__()
 
     async def __aexit__(self, *_: Any) -> None:

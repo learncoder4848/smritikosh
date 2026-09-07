@@ -1,17 +1,13 @@
 """Tests for fingerprinting helpers."""
 
-import hashlib
 
+from smritikosh.engine._context import ContextKey, PipelineContext
 from smritikosh.engine._fingerprint import (
     _compute_context_fingerprint,
     _compute_input_fingerprint,
     _compute_logic_fingerprint,
     _hash_bytes,
-    _tracked_logic_fps,
 )
-from smritikosh.engine._context import PipelineContext
-from smritikosh.engine._context import ContextKey
-
 
 # ---------------------------------------------------------------------------
 # _hash_bytes
