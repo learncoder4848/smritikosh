@@ -1,6 +1,6 @@
-"""Stage 3: chunking + embedding -- code chunks -> vectors."""
+"""Stage 3: chunking source files into retrievable chunks."""
 
-from smritikosh.models import Chunk, EmbeddedChunk, ParsedFile, Symbol
+from smritikosh.models import Chunk, ParsedFile, Symbol
 
 
 def chunk_file(parsed: ParsedFile, symbols: list[Symbol]) -> list[Chunk]:
@@ -11,7 +11,7 @@ def chunk_file(parsed: ParsedFile, symbols: list[Symbol]) -> list[Chunk]:
     raise NotImplementedError
 
 
-def embed_chunks(chunks: list[Chunk]) -> list[EmbeddedChunk]:
+def embed_chunks(chunks: list[Chunk]) -> list[tuple[Chunk, list[float]]]:
     """Compute embedding vectors for a batch of chunks.
 
     TODO: call out to an embedding model/service.

@@ -1,4 +1,7 @@
-"""Indexing pipeline orchestrator: repo -> parse -> extract -> chunk/embed -> vector index."""
+"""Indexing pipeline orchestrator.
+
+Source repo -> parse -> extract -> chunk/embed -> vector index.
+"""
 
 
 def compute_repo_hash(repo_path: str) -> dict[str, str]:
@@ -9,7 +12,9 @@ def compute_repo_hash(repo_path: str) -> dict[str, str]:
     raise NotImplementedError
 
 
-def diff_changed_files(old_hashes: dict[str, str], new_hashes: dict[str, str]) -> list[str]:
+def diff_changed_files(
+    old_hashes: dict[str, str], new_hashes: dict[str, str]
+) -> list[str]:
     """Compare two hash trees and return paths that changed/were added/removed.
 
     TODO: implement Merkle diff.
@@ -25,7 +30,8 @@ def build_index(repo_path: str, index_dir: str, incremental: bool = True) -> Non
 
     TODO: wire this together, e.g.:
       1. determine files to (re)process (compute_repo_hash + diff_changed_files)
-      2. for each file: parser.parse_file -> extractor.extract_* -> chunker.chunk_file/embed_chunks
+      2. for each file:
+         parser.parse_file -> extractor.extract_* -> chunker.chunk_file/embed_chunks
       3. update VectorIndex
       4. persist new hash tree + vector index
     """
