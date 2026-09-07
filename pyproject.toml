@@ -24,8 +24,29 @@ priority = "primary"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.1.1"
+pytest-asyncio = "^1.0"
+pytest-cov = "^6.0"
 ruff = "^0.16.6"
 pre-commit = "^4.6.2"
+duckdb = "^1.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-v"
+
+[tool.coverage.run]
+source = ["smritikosh"]
+
+[tool.coverage.report]
+# Baseline: 63 % (engine fully tested; cli/indexing/models stubs not yet implemented).
+# Raise this threshold in the same PR that adds tests for each new module.
+fail_under = 60
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "\\.\\.\\.",
+]
 
 [tool.ruff]
 line-length = 88

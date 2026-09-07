@@ -1,6 +1,6 @@
-.PHONY: check format help install install-root lint lock pre-commit-install pre-commit-run test
+.PHONY: install install-root lock test cov lint fmt check pre-commit-install pre-commit-run help
 
-POETRY ?= poetry
+# ── Help ──────────────────────────────────────────────────────────────────────
 
 help:
 	@echo "Available targets:"
@@ -8,34 +8,50 @@ help:
 	@echo "  install-root        Install dependencies and the project package"
 	@echo "  lock                Generate or update poetry.lock"
 	@echo "  test                Run tests"
+	@echo "  cov                 Run tests with coverage report"
 	@echo "  lint                Run Ruff lint checks"
-	@echo "  format              Run Ruff format checks"
-	@echo "  check               Run lint, format, and tests"
+	@echo "  fmt                 Run Ruff format checks"
+	@echo "  check               Run lint and tests with coverage"
 	@echo "  pre-commit-install  Install pre-commit hooks"
 	@echo "  pre-commit-run      Run pre-commit hooks against all files"
 
+# ── Dependencies ──────────────────────────────────────────────────────────────
+
 install:
-	$(POETRY) install --with dev --no-root
+	poetry install --no-root
 
 install-root:
-	$(POETRY) install --with dev
+	poetry install
 
 lock:
-	$(POETRY) lock
+	poetry lock
+
+# ── Test ──────────────────────────────────────────────────────────────────────
 
 test:
-	$(POETRY) run python -m pytest -v
+	python -m pytest tests/ -v --no-cov
+
+cov:
+	python -m pytest tests/ \
+	    --cov=smritikosh \
+	    --cov-report=term-missing \
+	    --cov-report=html:htmlcov \
+	    --cov-fail-under=60
+
+# ── Lint / Format ─────────────────────────────────────────────────────────────
 
 lint:
-	$(POETRY) run ruff check .
+	ruff check smritikosh/ tests/
 
-format:
-	$(POETRY) run ruff format --check .
+fmt:
+	ruff format smritikosh/ tests/
 
-check: lint format test
+check: lint cov
+
+# ── Pre-commit ────────────────────────────────────────────────────────────────
 
 pre-commit-install:
-	$(POETRY) run pre-commit install
+	pre-commit install
 
 pre-commit-run:
-	$(POETRY) run pre-commit run --all-files
+	pre-commit run --all-files
