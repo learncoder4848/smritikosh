@@ -3,9 +3,8 @@
 import duckdb
 import pytest
 
-from smritikosh.engine import initialize_memo_store
-from smritikosh.engine._memo import _memo_store as _store_ref
 import smritikosh.engine._memo as _memo_module
+from smritikosh.engine import initialize_memo_store
 
 
 @pytest.fixture

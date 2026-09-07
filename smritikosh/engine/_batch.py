@@ -5,8 +5,8 @@ from __future__ import annotations
 import asyncio
 import functools
 import inspect
-from typing import Any, Callable
-
+from collections.abc import Callable
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Exception
@@ -119,7 +119,7 @@ class BatchGatherer:
             else:
                 results = await asyncio.to_thread(self._batch_fn, items)
 
-            for fut, res in zip(futures, results):
+            for fut, res in zip(futures, results, strict=True):
                 if not fut.done():
                     fut.set_result(res)
 
@@ -166,8 +166,10 @@ class AsyncWrapper:
         return wrapper
 
     @staticmethod
-    def batched(max_size: int) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-        """Return a decorator that routes single-item calls through a :class:`BatchGatherer`.
+    def batched(
+        max_size: int,
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        """Return a decorator routing single-item calls through :class:`BatchGatherer`.
 
         The decorated function must have the *batch* signature::
 

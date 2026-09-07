@@ -1,10 +1,8 @@
 """Tests for @sm.memoized and @sm.tracked."""
 
-import pytest
 
-from smritikosh.engine import PipelineContext, sm
 import smritikosh.engine._memo as _memo_module
-
+from smritikosh.engine import PipelineContext, sm
 
 # ---------------------------------------------------------------------------
 # @sm.memoized — caching behaviour

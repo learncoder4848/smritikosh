@@ -5,7 +5,8 @@ from __future__ import annotations
 import hashlib
 import inspect
 import pickle
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from smritikosh.engine._context import _ACTIVE_CONTEXT
 

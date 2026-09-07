@@ -1,4 +1,4 @@
-"""Tests for BatchGatherer, AsyncWrapper (@sm.batched / @sm.threaded), RetryWithSmallerBatch."""
+"""Tests for BatchGatherer, AsyncWrapper, RetryWithSmallerBatch."""
 
 import asyncio
 import time
@@ -7,7 +7,6 @@ import pytest
 
 from smritikosh.engine import RetryWithSmallerBatch, sm
 from smritikosh.engine._batch import BatchGatherer
-
 
 # ---------------------------------------------------------------------------
 # RetryWithSmallerBatch

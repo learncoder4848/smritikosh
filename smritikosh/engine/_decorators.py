@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import functools
 import hashlib
 import inspect
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import smritikosh.engine._memo as _memo_module
 from smritikosh.engine._context import _COMPONENT_PATH
