@@ -5,6 +5,9 @@ description = "Semantic vector search over a codebase"
 requires-python = ">=3.10"
 dependencies = [
     "click>=8.1",
+    "duckdb>=0.10",
+    "sentence-transformers>=6.0",
+    "truststore>=0.9",
 ]
 
 [project.scripts]
@@ -33,7 +36,9 @@ duckdb = "^1.0"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "-v"
+# importlib mode lets test files share a basename across directories.
+addopts = "-v --import-mode=importlib"
+markers = ["slow: loads the real embedding model; skip with -m 'not slow'"]
 
 [tool.coverage.run]
 source = ["smritikosh"]
