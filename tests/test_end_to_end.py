@@ -38,7 +38,7 @@ def chunk_id_for(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()[:16]
 
 
-# Module-scoped: loading the model costs seconds and ~1GB, so do it once.
+# Module-scoped: loading the model costs seconds and ~3GB, so do it once.
 @pytest.fixture(scope="module")
 def embedder() -> SentenceTransformerEmbedder:
     return SentenceTransformerEmbedder()

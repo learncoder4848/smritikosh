@@ -14,7 +14,7 @@ __all__ = ["DEFAULT_MODEL", "SentenceTransformerEmbedder"]
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL: Final = "jinaai/jina-code-embeddings-0.5b"
+DEFAULT_MODEL: Final = "jinaai/jina-code-embeddings-1.5b"
 
 
 class SentenceTransformerEmbedder(Embedder):
@@ -51,7 +51,7 @@ class SentenceTransformerEmbedder(Embedder):
         return [vector.tolist() for vector in vectors]
 
     def _load(self) -> SentenceTransformer:
-        # Deferred: importing torch costs seconds, and the weights are ~1GB.
+        # Deferred: importing torch costs seconds, and the weights are ~3GB.
         if self._model is None:
             from sentence_transformers import SentenceTransformer
 
@@ -60,6 +60,6 @@ class SentenceTransformerEmbedder(Embedder):
                 self._model_name,
                 device=self._device,
                 truncate_dim=self._truncate_dim,
-                tokenizer_kwargs={"padding_side": "left"},
+                processor_kwargs={"padding_side": "left"},
             )
         return self._model
