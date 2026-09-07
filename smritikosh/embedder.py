@@ -65,7 +65,7 @@ class SentenceTransformerEmbedder(Embedder):
 
     @property
     def dims(self) -> int:
-        return self._truncate_dim or self._load().get_sentence_embedding_dimension()
+        return self._truncate_dim or self._load().get_embedding_dimension()
 
     @property
     def model_id(self) -> str:
