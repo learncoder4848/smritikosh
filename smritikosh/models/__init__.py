@@ -27,14 +27,6 @@ class Symbol:
 
 
 @dataclass
-class CallEdge:
-    caller: str
-    callee: str
-    path: str
-    line: int
-
-
-@dataclass
 class Chunk:
     id: str
     path: str
@@ -57,5 +49,5 @@ class SearchResult:
     end_line: int
     snippet: str
     score: float
-    source: str = ""  # which index/indexes contributed
+    source: str = ""
     metadata: dict = field(default_factory=dict)

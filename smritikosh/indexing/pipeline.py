@@ -1,12 +1,4 @@
-"""Indexing pipeline orchestrator: repo -> parse -> extract -> chunk/embed -> 3 indexes.
-
-Build once, then Merkle-diff updates on subsequent runs.
-"""
-
-from smritikosh.indexing import chunker, extractor, parser
-from smritikosh.indexing.callgraph_index import CallGraphIndex
-from smritikosh.indexing.lexical_index import LexicalIndex
-from smritikosh.indexing.vector_index import VectorIndex
+"""Indexing pipeline orchestrator: repo -> parse -> extract -> chunk/embed -> vector index."""
 
 
 def compute_repo_hash(repo_path: str) -> dict[str, str]:
@@ -34,7 +26,7 @@ def build_index(repo_path: str, index_dir: str, incremental: bool = True) -> Non
     TODO: wire this together, e.g.:
       1. determine files to (re)process (compute_repo_hash + diff_changed_files)
       2. for each file: parser.parse_file -> extractor.extract_* -> chunker.chunk_file/embed_chunks
-      3. update LexicalIndex, CallGraphIndex, VectorIndex
-      4. persist new hash tree + all three indexes
+      3. update VectorIndex
+      4. persist new hash tree + vector index
     """
     raise NotImplementedError
