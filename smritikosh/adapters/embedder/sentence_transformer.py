@@ -53,7 +53,14 @@ class SentenceTransformerEmbedder(Embedder):
     def _load(self) -> SentenceTransformer:
         # Deferred: importing torch costs seconds, and the weights are ~3GB.
         if self._model is None:
+            import truststore
             from sentence_transformers import SentenceTransformer
+
+            # Corporate proxies (Zscaler etc.) MITM TLS; certifi does not know their
+            # CA but the OS trust store does, and Python 3.13 verifies strictly.
+            # Downloading the weights is the only network call we make, so trust is
+            # established here rather than left to whoever imported us.
+            truststore.inject_into_ssl()
 
             logger.info("Loading embedding model %s", self._model_name)
             self._model = SentenceTransformer(
