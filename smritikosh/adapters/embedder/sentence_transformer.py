@@ -1,55 +1,24 @@
-"""Embedding backends -- text in, dense vectors out."""
+"""Local embedding backend -- no API key, weights cached on disk."""
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Final
+
+from smritikosh.ports.embedder import Embedder
 
 if TYPE_CHECKING:
     from sentence_transformers import SentenceTransformer
 
-__all__ = ["DEFAULT_MODEL", "Embedder", "SentenceTransformerEmbedder"]
+__all__ = ["DEFAULT_MODEL", "SentenceTransformerEmbedder"]
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL: Final = "jinaai/jina-code-embeddings-0.5b"
 
 
-class Embedder(ABC):
-    """Turns text into dense vectors for indexing and search."""
-
-    @property
-    @abstractmethod
-    def dims(self) -> int:
-        """Vector width, which drives VectorStore.setup()."""
-
-    @property
-    @abstractmethod
-    def model_id(self) -> str:
-        """Model identity; a change invalidates every cached embedding."""
-
-    @abstractmethod
-    def encode_documents(self, texts: list[str]) -> list[list[float]]: ...
-
-    @abstractmethod
-    def encode_queries(self, texts: list[str]) -> list[list[float]]: ...
-
-    async def embed_document(self, text: str) -> list[float]:
-        vectors = await asyncio.to_thread(self.encode_documents, [text])
-        return vectors[0]
-
-    async def embed_query(self, text: str) -> list[float]:
-        vectors = await asyncio.to_thread(self.encode_queries, [text])
-        return vectors[0]
-
-    async def embed_documents_batch(self, texts: list[str]) -> list[list[float]]:
-        return await asyncio.to_thread(self.encode_documents, texts)
-
-
 class SentenceTransformerEmbedder(Embedder):
-    """Local sentence-transformers backend -- no API key, weights cached on disk."""
+    """Embeds through a local sentence-transformers model."""
 
     def __init__(
         self,

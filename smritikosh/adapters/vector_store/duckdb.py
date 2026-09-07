@@ -1,14 +1,15 @@
-"""Vector storage backends -- upsert chunk vectors, rank them by cosine similarity."""
+"""DuckDB vector store -- one .duckdb file, native array_cosine_similarity."""
 
 from __future__ import annotations
 
 import logging
-from abc import ABC, abstractmethod
 from typing import Final
 
 import duckdb
 
-__all__ = ["DuckDBVectorStore", "VectorStore"]
+from smritikosh.ports.vector_store import VectorStore
+
+__all__ = ["DuckDBVectorStore"]
 
 logger = logging.getLogger(__name__)
 
@@ -16,33 +17,8 @@ DIMS_KEY: Final = "embedder_dims"
 INCREMENTAL_CACHES: Final = ("file_hashes", "memo_cache")
 
 
-class VectorStore(ABC):
-    """Stores one vector per chunk and ranks them against a query vector."""
-
-    @abstractmethod
-    def setup(self, dims: int) -> None:
-        """Prepare storage for vectors of width dims, rebuilding if dims changed."""
-
-    @abstractmethod
-    def upsert(self, chunk_id: str, vector: list[float]) -> None: ...
-
-    @abstractmethod
-    def search(self, query_vector: list[float], top_k: int) -> list[tuple[str, float]]:
-        """Return (chunk_id, cosine_score) pairs ranked by score descending."""
-
-    @abstractmethod
-    def delete(self, chunk_id: str) -> None: ...
-
-    @abstractmethod
-    def exists(self, chunk_id: str) -> bool: ...
-
-    @abstractmethod
-    def get_stored_dims(self) -> int | None:
-        """Width the store was last set up with, or None if never set up."""
-
-
 class DuckDBVectorStore(VectorStore):
-    """DuckDB store using the native array_cosine_similarity function."""
+    """Stores vectors in a DuckDB FLOAT[dims] column."""
 
     def __init__(
         self,
