@@ -3,18 +3,17 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
+from smritikosh.constants import DEFAULT_MODEL
 from smritikosh.ports.embedder import Embedder
 
 if TYPE_CHECKING:
     from sentence_transformers import SentenceTransformer
 
-__all__ = ["DEFAULT_MODEL", "SentenceTransformerEmbedder"]
+__all__ = ["SentenceTransformerEmbedder"]
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_MODEL: Final = "jinaai/jina-code-embeddings-1.5b"
 
 
 class SentenceTransformerEmbedder(Embedder):

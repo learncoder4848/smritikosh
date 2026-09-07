@@ -7,6 +7,7 @@ from typing import Final
 
 import duckdb
 
+from smritikosh.constants import DEFAULT_DB_PATH
 from smritikosh.ports.vector_store import VectorStore
 
 __all__ = ["DuckDBVectorStore"]
@@ -22,7 +23,7 @@ class DuckDBVectorStore(VectorStore):
 
     def __init__(
         self,
-        db_path: str = "smritikosh.duckdb",
+        db_path: str = DEFAULT_DB_PATH,
         *,
         con: duckdb.DuckDBPyConnection | None = None,
     ) -> None:
