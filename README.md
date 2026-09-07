@@ -23,6 +23,10 @@ smritikosh index /path/to/repo
 smritikosh search "query text"
 ```
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for commit and PR conventions.
+
 ## Status
 
 Scaffolding only -- pipeline stages and index logic are stubs (`NotImplementedError`)
