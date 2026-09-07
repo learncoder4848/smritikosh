@@ -5,3 +5,12 @@ repos:
       - id: ruff-check
         args: [--fix]
       - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest (smritikosh)
+        language: system
+        entry: pytest --cov=smritikosh --cov-fail-under=60 -q
+        pass_filenames: false
+        always_run: true
