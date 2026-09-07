@@ -1,7 +1,7 @@
 [project]
 name = "smritikosh"
 version = "0.1.0"
-description = "Codebase indexing and hybrid retrieval for agent tool calls"
+description = "Semantic vector search over a codebase"
 requires-python = ">=3.10"
 dependencies = [
     "click>=8.1",
