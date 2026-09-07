@@ -10,8 +10,14 @@ def main():
 
 @main.command()
 @click.argument("repo_path", type=click.Path(exists=True, file_okay=False))
-@click.option("--index-dir", default=".smritikosh", help="Directory to store indexes in.")
-@click.option("--full", is_flag=True, help="Force a full rebuild instead of an incremental update.")
+@click.option(
+    "--index-dir", default=".smritikosh", help="Directory to store indexes in."
+)
+@click.option(
+    "--full",
+    is_flag=True,
+    help="Force a full rebuild instead of an incremental update.",
+)
 def index(repo_path: str, index_dir: str, full: bool):
     """Build or incrementally update the index for REPO_PATH."""
     from smritikosh.indexing.pipeline import build_index
@@ -21,7 +27,9 @@ def index(repo_path: str, index_dir: str, full: bool):
 
 @main.command()
 @click.argument("query")
-@click.option("--index-dir", default=".smritikosh", help="Directory indexes were stored in.")
+@click.option(
+    "--index-dir", default=".smritikosh", help="Directory indexes were stored in."
+)
 @click.option("--top-k", default=10, help="Number of results to return.")
 def search(query: str, index_dir: str, top_k: int):
     """Run a semantic search QUERY against the built vector index."""

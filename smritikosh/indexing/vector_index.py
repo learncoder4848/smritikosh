@@ -1,6 +1,6 @@
 """Vector index -- semantic similarity search over embedded chunks."""
 
-from smritikosh.models import EmbeddedChunk, SearchResult
+from smritikosh.models import Chunk, SearchResult
 
 
 class VectorIndex:
@@ -9,7 +9,7 @@ class VectorIndex:
     def __init__(self, index_dir: str):
         self.index_dir = index_dir
 
-    def build(self, embedded_chunks: list[EmbeddedChunk]) -> None:
+    def build(self, chunks: list[Chunk]) -> None:
         """Build/update the vector index.
 
         TODO: pick a backend (faiss, sqlite-vec, chroma, etc).
