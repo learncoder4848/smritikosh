@@ -1,16 +1,9 @@
-"""Stage 1: tree-sitter parse -- source files -> AST per file."""
+"""Stage 1: tree-sitter parse -- source files -> AST per file.
 
-from collections.abc import Iterator
+File selection lives in indexing/discovery.py; this module only parses.
+"""
 
 from smritikosh.models import ParsedFile, SourceFile
-
-
-def iter_source_files(repo_path: str) -> Iterator[SourceFile]:
-    """Walk the repository and yield source files to parse.
-
-    TODO: respect .gitignore, filter by supported extensions/languages.
-    """
-    raise NotImplementedError
 
 
 def parse_file(source: SourceFile) -> ParsedFile:

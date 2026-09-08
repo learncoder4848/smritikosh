@@ -1,11 +1,23 @@
-"""Shared test doubles for all indexing strategy tests."""
+"""Shared test doubles for the indexing tests."""
 
 from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
 
-from smritikosh.models import Capture, ParsedFile
+from smritikosh.models import Capture, Chunk, ParsedFile
+
+# ── FakeStrategy ───────────────────────────────────────────────────────────
+
+
+class FakeStrategy:
+    """Stand-in for a chunking strategy. Routing and discovery never chunk."""
+
+    mode_name = "fake"
+
+    def chunk(self, parsed: ParsedFile, captures: list[Capture]) -> list[Chunk]:  # noqa: ARG002
+        return []
+
 
 # ── FakeNode ──────────────────────────────────────────────────────────────
 

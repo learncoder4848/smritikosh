@@ -9,7 +9,7 @@ PY := $(VENV)/bin/python
 # Suites that run without loading the embedding model. Named once because both
 # test and cov need the list; add new directories here.
 FAST_TESTS := tests/engine/ tests/models/ tests/adapters/vector_store/ \
-	tests/queries/ tests/indexing/
+	tests/adapters/file_source/ tests/queries/ tests/indexing/
 
 # ── Help ──────────────────────────────────────────────────────────────────────
 
@@ -48,7 +48,7 @@ cov:
 	    --cov=smritikosh \
 	    --cov-report=term-missing \
 	    --cov-report=html:htmlcov \
-	    --cov-fail-under=60
+	    --cov-fail-under=70
 
 # The language directories under smritikosh/queries/ are not packages, so the
 # .scm files reach the wheel only through a package-data glob. Nothing in the

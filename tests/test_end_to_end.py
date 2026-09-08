@@ -8,7 +8,16 @@ import pytest
 from smritikosh.adapters.embedder.sentence_transformer import (
     SentenceTransformerEmbedder,
 )
+from smritikosh.adapters.file_source.local import LocalFileSource
 from smritikosh.adapters.vector_store.duckdb import DuckDBVectorStore
+from smritikosh.indexing.discovery import iter_source_files
+from smritikosh.indexing.file_router import FileRouter, JsonExcludeFilter
+from smritikosh.indexing.strategies import (
+    AstChunkingStrategy,
+    RegexChunkingStrategy,
+    SectionChunkingStrategy,
+)
+from smritikosh.models import SourceFile
 
 pytestmark = pytest.mark.slow
 
@@ -81,3 +90,69 @@ def test_should_not_duplicate_rows_when_a_chunk_is_reindexed(
     hits = store.search(query, top_k=10)
 
     assert len(hits) == len(SNIPPETS)
+
+
+# A repo with one file per outcome: four worth indexing, four that must be
+# dropped -- by excluded directory, by .gitignore, and by the router twice.
+REPO = {
+    "src/billing/invoice.py": "class Invoice:\n    pass\n",
+    "README.md": "# Title\n\nBody.\n",
+    "pyproject.toml": "[tool.ruff]\nline-length = 88\n",
+    "config/eval_config.json": '{"model": "jina"}\n',
+    "node_modules/lodash/index.js": "module.exports = {};\n",
+    "secrets.env": "TOKEN=abc\n",
+    "package-lock.json": '{"lockfileVersion": 3}\n',
+    "assets/logo.png": "binary-ish\n",
+    ".gitignore": "secrets.env\n",
+}
+
+
+def test_should_select_and_route_a_real_repo(tmp_path: Path) -> None:
+    """LocalFileSource + FileRouter + discovery over files that exist on disk."""
+    for rel, text in REPO.items():
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text(text)
+
+    ast = AstChunkingStrategy()
+    sections = SectionChunkingStrategy()
+    toml = RegexChunkingStrategy(r"^\[+[^\]]+\]")
+
+    router = FileRouter(JsonExcludeFilter())
+    router.register_extension(".py", "python", ast)
+    router.register_extension(".js", "javascript", ast)
+    router.register_extension(".md", "markdown", sections)
+    router.register_extension(".json", "json", sections)
+    router.register_extension(".toml", "toml", toml, has_tags_scm=False)
+
+    selected = list(iter_source_files(LocalFileSource(str(tmp_path)), router))
+
+    assert selected == [
+        SourceFile(
+            path="README.md",
+            language="markdown",
+            content=REPO["README.md"],
+            has_tags_scm=True,
+            strategy=sections,
+        ),
+        SourceFile(
+            path="config/eval_config.json",
+            language="json",
+            content=REPO["config/eval_config.json"],
+            has_tags_scm=True,
+            strategy=sections,
+        ),
+        SourceFile(
+            path="pyproject.toml",
+            language="toml",
+            content=REPO["pyproject.toml"],
+            has_tags_scm=False,
+            strategy=toml,
+        ),
+        SourceFile(
+            path="src/billing/invoice.py",
+            language="python",
+            content=REPO["src/billing/invoice.py"],
+            has_tags_scm=True,
+            strategy=ast,
+        ),
+    ]

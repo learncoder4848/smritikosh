@@ -1478,6 +1478,28 @@ url = "https://artifact.intuit.com/artifactory/api/pypi/pypi-intuit/simple"
 reference = "private-pypi"
 
 [[package]]
+name = "pathspec"
+version = "1.1.1"
+description = "Utility library for gitignore style pattern matching of file paths."
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "pathspec-1.1.1-py3-none-any.whl", hash = "sha256:a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189"},
+    {file = "pathspec-1.1.1.tar.gz", hash = "sha256:17db5ecd524104a120e173814c90367a96a98d07c45b2e10c2f3919fff91bf5a"},
+]
+
+[package.extras]
+hyperscan = ["hyperscan (>=0.7)"]
+optional = ["typing-extensions (>=4)"]
+re2 = ["google-re2 (>=1.1)"]
+
+[package.source]
+type = "legacy"
+url = "https://artifact.intuit.com/artifactory/api/pypi/pypi-intuit/simple"
+reference = "private-pypi"
+
+[[package]]
 name = "platformdirs"
 version = "4.11.7"
 description = "A small Python package for determining appropriate platform-specific dirs, e.g. a `user data dir`."
@@ -2776,4 +2798,4 @@ reference = "private-pypi"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10"
-content-hash = "538c63c11ad5821fc98102e23f9ad98003d57911149912e5e441c7b410dd438b"
+content-hash = "59039ab562163e11e824003236cc856f9089f01f3e7f3db86b24858ec69c65d7"
