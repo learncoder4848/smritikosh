@@ -8,7 +8,8 @@ PY := $(VENV)/bin/python
 
 # Suites that run without loading the embedding model. Named once because both
 # test and cov need the list; add new directories here.
-FAST_TESTS := tests/engine/ tests/models/ tests/adapters/vector_store/ tests/queries/
+FAST_TESTS := tests/engine/ tests/models/ tests/adapters/vector_store/ \
+	tests/queries/ tests/indexing/
 
 # ── Help ──────────────────────────────────────────────────────────────────────
 
