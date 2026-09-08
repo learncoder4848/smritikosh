@@ -1,4 +1,14 @@
-.PHONY: install install-root lock test cov lint fmt check pre-commit-install pre-commit-run help
+.PHONY: install install-root lock test cov check-wheel lint fmt check pre-commit-install pre-commit-run help
+
+POETRY ?= poetry
+
+# Call the venv's binaries directly so targets work without activating it.
+VENV := $(CURDIR)/.venv
+PY := $(VENV)/bin/python
+
+# Suites that run without loading the embedding model. Named once because both
+# test and cov need the list; add new directories here.
+FAST_TESTS := tests/engine/ tests/models/ tests/adapters/vector_store/ tests/queries/
 
 # ── Help ──────────────────────────────────────────────────────────────────────
 
@@ -9,6 +19,7 @@ help:
 	@echo "  lock                Generate or update poetry.lock"
 	@echo "  test                Run tests"
 	@echo "  cov                 Run tests with coverage report"
+	@echo "  check-wheel         Verify the built wheel carries the tags.scm files"
 	@echo "  lint                Run Ruff lint checks"
 	@echo "  fmt                 Run Ruff format checks"
 	@echo "  check               Run lint and tests with coverage"
@@ -18,40 +29,55 @@ help:
 # ── Dependencies ──────────────────────────────────────────────────────────────
 
 install:
-	poetry install --no-root
+	$(POETRY) install --no-root
 
 install-root:
-	poetry install
+	$(POETRY) install
 
 lock:
-	poetry lock
+	$(POETRY) lock
 
 # ── Test ──────────────────────────────────────────────────────────────────────
 
 test:
-	python -m pytest tests/engine/ tests/models/ tests/adapters/vector_store/ -v --no-cov
+	$(PY) -m pytest $(FAST_TESTS) -v --no-cov
 
 cov:
-	python -m pytest tests/engine/ tests/models/ tests/adapters/vector_store/ \
+	$(PY) -m pytest $(FAST_TESTS) \
 	    --cov=smritikosh \
 	    --cov-report=term-missing \
 	    --cov-report=html:htmlcov \
 	    --cov-fail-under=60
 
+# The language directories under smritikosh/queries/ are not packages, so the
+# .scm files reach the wheel only through a package-data glob. Nothing in the
+# test suite would notice if that glob stopped matching, hence this check.
+check-wheel:
+	@rm -rf dist/wheel-check
+	@$(PY) -m build --wheel --outdir dist/wheel-check >/dev/null
+	@found=$$(unzip -l dist/wheel-check/*.whl | grep -c 'queries/.*/tags\.scm'); \
+	if [ "$$found" -ne 7 ]; then \
+	    echo "ERROR: expected 7 tags.scm files in the wheel, found $$found."; \
+	    echo "Check [tool.setuptools.package-data] in pyproject.toml."; \
+	    rm -rf dist/wheel-check; exit 1; \
+	fi; \
+	rm -rf dist/wheel-check; \
+	echo "Wheel carries all 7 tags.scm files."
+
 # ── Lint / Format ─────────────────────────────────────────────────────────────
 
 lint:
-	ruff check smritikosh/ tests/
+	$(VENV)/bin/ruff check smritikosh/ tests/
 
 fmt:
-	ruff format smritikosh/ tests/
+	$(VENV)/bin/ruff format smritikosh/ tests/
 
 check: lint cov
 
 # ── Pre-commit ────────────────────────────────────────────────────────────────
 
 pre-commit-install:
-	pre-commit install
+	$(VENV)/bin/pre-commit install
 
 pre-commit-run:
-	pre-commit run --all-files
+	$(VENV)/bin/pre-commit run --all-files
