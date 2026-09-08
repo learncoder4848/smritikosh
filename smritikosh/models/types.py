@@ -18,7 +18,18 @@ class ChunkingStrategy(Protocol):
 
 @dataclass
 class Capture:
-    """A tree-sitter capture produced by the extractor."""
+    """Represent a named definition found by a tree-sitter query.
+
+    The node retains the captured source text and its zero-based
+    ``start_point`` and ``end_point`` positions. Printing a capture resembles::
+
+        Capture(
+            capture_name="definition.function",
+            node=<Node type=function_definition, start_point=(0, 0), ...>,
+            name="fetch",
+            path="src/client.py",
+        )
+    """
 
     capture_name: str
     node: Any
