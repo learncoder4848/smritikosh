@@ -6,6 +6,8 @@ requires-python = ">=3.10"
 dependencies = [
     "click>=8.1",
     "duckdb>=0.10",
+    # 1.0 renamed the gitignore pattern factory; "gitwildmatch" is deprecated.
+    "pathspec>=1.0",
     "sentence-transformers>=6.0",
     "tree-sitter>=0.25",
     # Pinned below 1.0: the 1.x line downloads grammar binaries at first use
@@ -55,9 +57,10 @@ markers = ["slow: loads the real embedding model; skip with -m 'not slow'"]
 source = ["smritikosh"]
 
 [tool.coverage.report]
-# Baseline: 63 % (engine fully tested; cli/indexing/models stubs not yet implemented).
+# Baseline: 73 % (engine, strategies, and file selection tested; cli/parser/
+# chunker/pipeline stubs not yet implemented).
 # Raise this threshold in the same PR that adds tests for each new module.
-fail_under = 60
+fail_under = 70
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",
