@@ -8,8 +8,7 @@ import pytest
 from smritikosh.adapters.storage.duckdb import DuckDBAdapter
 from smritikosh.models import Chunk, SourceFile
 
-
-# --------------------------------------------------------------------------- helpers
+# ── helpers ─────────────────────────────────────────────────────────────────
 
 
 class _FakeStrategy:
@@ -47,7 +46,7 @@ def _chunk(
     )
 
 
-# --------------------------------------------------------------------------- fixture
+# ── fixture ─────────────────────────────────────────────────────────────────
 
 
 @pytest.fixture
@@ -55,7 +54,7 @@ def adapter() -> DuckDBAdapter:
     return DuckDBAdapter(con=duckdb.connect(":memory:"))
 
 
-# --------------------------------------------------------------------------- upsert_file_node
+# ── upsert_file_node ────────────────────────────────────────────────────────
 
 
 def test_upsert_file_node_stores_a_file_row(adapter: DuckDBAdapter) -> None:
@@ -79,7 +78,7 @@ def test_upsert_file_node_is_idempotent(adapter: DuckDBAdapter) -> None:
     assert count == 1
 
 
-# --------------------------------------------------------------------------- upsert_chunk_nodes
+# ── upsert_chunk_nodes ──────────────────────────────────────────────────────
 
 
 def test_upsert_chunk_nodes_stores_all_chunks(adapter: DuckDBAdapter) -> None:
@@ -110,7 +109,7 @@ def test_upsert_chunk_nodes_no_op_on_empty_list(adapter: DuckDBAdapter) -> None:
     adapter.upsert_chunk_nodes([])  # must not raise
 
 
-# --------------------------------------------------------------------------- delete_chunk_node
+# ── delete_chunk_node ───────────────────────────────────────────────────────
 
 
 def test_delete_chunk_node_removes_only_targeted_chunk(adapter: DuckDBAdapter) -> None:
@@ -127,7 +126,7 @@ def test_delete_chunk_node_removes_only_targeted_chunk(adapter: DuckDBAdapter) -
     assert ids == {"keep"}
 
 
-# --------------------------------------------------------------------------- get_chunk_ids_for_file
+# ── get_chunk_ids_for_file ──────────────────────────────────────────────────
 
 
 def test_get_chunk_ids_for_file_returns_correct_ids(adapter: DuckDBAdapter) -> None:
@@ -150,7 +149,7 @@ def test_get_chunk_ids_for_file_returns_empty_set_when_no_match(
     assert adapter.get_chunk_ids_for_file("missing.py") == set()
 
 
-# --------------------------------------------------------------------------- get_chunks_by_ids
+# ── get_chunks_by_ids ───────────────────────────────────────────────────────
 
 
 def test_get_chunks_by_ids_returns_correct_metadata(adapter: DuckDBAdapter) -> None:
@@ -179,7 +178,7 @@ def test_get_chunks_by_ids_ignores_unknown_ids(adapter: DuckDBAdapter) -> None:
     assert adapter.get_chunks_by_ids(["does-not-exist"]) == []
 
 
-# --------------------------------------------------------------------------- file hashes
+# ── file hashes ─────────────────────────────────────────────────────────────
 
 
 def test_get_file_hash_returns_none_when_unknown(adapter: DuckDBAdapter) -> None:
@@ -206,7 +205,7 @@ def test_get_all_file_paths_returns_all_tracked_paths(adapter: DuckDBAdapter) ->
     assert adapter.get_all_file_paths() == {"a.py", "b.py"}
 
 
-# --------------------------------------------------------------------------- delete_file
+# ── delete_file ─────────────────────────────────────────────────────────────
 
 
 def test_delete_file_removes_nodes_and_hash(adapter: DuckDBAdapter) -> None:

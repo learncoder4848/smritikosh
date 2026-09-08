@@ -115,7 +115,8 @@ class DuckDBAdapter(StorageAdapter):
             return []
         placeholders = ", ".join("?" * len(chunk_ids))
         rows = self.con.execute(
-            f"SELECT id, path, metadata FROM nodes WHERE id IN ({placeholders}) AND kind = 'chunk'",  # noqa: S608
+            f"SELECT id, path, metadata FROM nodes"  # noqa: S608
+            f" WHERE id IN ({placeholders}) AND kind = 'chunk'",
             chunk_ids,
         ).fetchall()
         result = []

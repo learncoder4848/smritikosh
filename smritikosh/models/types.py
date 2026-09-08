@@ -7,9 +7,13 @@ from typing import Any, Protocol
 
 
 class ChunkingStrategy(Protocol):
-    """Minimal contract required by source-file routing."""
+    """Contract for all chunking strategies (routing + chunk production)."""
 
-    mode_name: str
+    mode_name: str  # stable class-level constant used in @sm.memoized fingerprints
+
+    def chunk(self, parsed: ParsedFile, captures: list[Capture]) -> list[Chunk]:
+        """Split *parsed* into retrievable chunks using tree-sitter *captures*."""
+        ...
 
 
 @dataclass
