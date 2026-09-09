@@ -2,7 +2,7 @@
 name = "smritikosh"
 version = "0.1.0"
 description = "Semantic vector search over a codebase"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 dependencies = [
     "click>=8.1",
     "duckdb>=0.10",
@@ -33,18 +33,31 @@ include = ["smritikosh*"]
 [tool.setuptools.package-data]
 "smritikosh.queries" = ["**/*.scm"]
 
+# ── Private index (Poetry) ────────────────────────────────────────────────────
+# Equivalent uv config lives in [[tool.uv.index]] below.
 [[tool.poetry.source]]
 name = "private-pypi"
 url = "https://artifact.intuit.com/artifactory/api/pypi/pypi-intuit/simple"
 priority = "primary"
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^9.1.1"
-pytest-asyncio = "^1.0"
-pytest-cov = "^6.0"
-ruff = "^0.16.6"
-pre-commit = "^4.6.2"
-duckdb = "^1.0"
+# ── Dev dependencies (PEP 735 — understood by both uv and Poetry 2.x) ─────────
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.0",
+    "pytest-cov>=6.0",
+    "ruff>=0.16.6",
+    "pre-commit>=4.6.2",
+    "duckdb>=1.0",
+]
+
+# ── Private index (uv) ────────────────────────────────────────────────────────
+# Mirrors [[tool.poetry.source]] above; uv reads this table, Poetry reads the
+# one above — both point to the same Artifactory simple index.
+[[tool.uv.index]]
+name = "private-pypi"
+url = "https://artifact.intuit.com/artifactory/api/pypi/pypi-intuit/simple"
+default = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
