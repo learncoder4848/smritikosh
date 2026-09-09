@@ -11,6 +11,6 @@ repos:
       - id: pytest
         name: pytest (smritikosh)
         language: system
-        entry: pytest --cov=smritikosh --cov-fail-under=70 -q
+        entry: .venv/bin/python -m pytest --cov=smritikosh --cov-fail-under=75 -q
         pass_filenames: false
         always_run: true
