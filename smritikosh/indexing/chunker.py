@@ -1,19 +1,14 @@
-"""Stage 3: chunking source files into retrievable chunks."""
+"""Stage 3: chunk orchestration — delegates to a ChunkingStrategy."""
 
-from smritikosh.models import Chunk, ParsedFile, Symbol
-
-
-def chunk_file(parsed: ParsedFile, symbols: list[Symbol]) -> list[Chunk]:
-    """Split a parsed file into retrievable chunks (e.g. per symbol, or sliding window).
-
-    TODO: decide chunk boundaries and overlap strategy.
-    """
-    raise NotImplementedError
+from smritikosh.engine import sm
+from smritikosh.models import Capture, Chunk, ChunkingStrategy, ParsedFile
 
 
-def embed_chunks(chunks: list[Chunk]) -> list[tuple[Chunk, list[float]]]:
-    """Compute embedding vectors for a batch of chunks.
-
-    TODO: call out to an embedding model/service.
-    """
-    raise NotImplementedError
+@sm.tracked
+def _chunk(
+    parsed: ParsedFile,
+    captures: list[Capture],
+    strategy: ChunkingStrategy,
+) -> list[Chunk]:
+    """Delegate chunking entirely to *strategy*."""
+    return strategy.chunk(parsed, captures)

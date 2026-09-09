@@ -41,3 +41,11 @@ def test_should_not_store_chunking_mode_as_field() -> None:
     field_names = {field.name for field in fields(SourceFile)}
 
     assert "chunking_mode" not in field_names
+
+
+def test_should_export_chunking_strategy_from_models() -> None:
+    from typing import Protocol
+
+    from smritikosh.models import ChunkingStrategy
+
+    assert issubclass(ChunkingStrategy, Protocol)

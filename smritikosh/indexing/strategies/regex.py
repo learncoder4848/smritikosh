@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from smritikosh.engine import sm
 from smritikosh.indexing.strategies._helpers import make_text_chunk
 from smritikosh.models import Capture, Chunk, ParsedFile
 
@@ -18,6 +19,7 @@ class RegexChunkingStrategy:
     def __init__(self, split_pattern: str) -> None:
         self._pattern = re.compile(split_pattern, re.MULTILINE)
 
+    @sm.tracked
     def chunk(self, parsed: ParsedFile, captures: list[Capture]) -> list[Chunk]:  # noqa: ARG002
         content = parsed.content
         matches = list(self._pattern.finditer(content))
