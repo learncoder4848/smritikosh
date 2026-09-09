@@ -60,6 +60,7 @@ class VectorIndex:
             if m["id"] in score_map
         ]
 
-        # Re-sort: storage row order is undefined; vector_store.search order is not preserved.
+        # Re-sort: storage row order is undefined; vector_store.search order
+        # is not preserved.
         results.sort(key=lambda r: r.score, reverse=True)
         return results

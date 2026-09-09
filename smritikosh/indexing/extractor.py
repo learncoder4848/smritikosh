@@ -25,7 +25,7 @@ def _load_query(language: str) -> Query:
 
 
 @sm.tracked
-def _extract(parsed: ParsedFile, has_tags_scm: bool) -> list[Capture]:
+def extract_file(parsed: ParsedFile, has_tags_scm: bool) -> list[Capture]:
     """Extract named definitions using the parsed file's packaged tags query."""
     if not has_tags_scm:
         return []

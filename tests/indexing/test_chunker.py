@@ -1,11 +1,11 @@
-"""Tests for chunk orchestration (_chunk) and content-addressed chunk ids."""
+"""Tests for chunk orchestration (chunk_file) and content-addressed chunk ids."""
 
 from __future__ import annotations
 
 import hashlib
 
 from smritikosh.engine._fingerprint import _tracked_logic_fps
-from smritikosh.indexing.chunker import _chunk
+from smritikosh.indexing.chunker import chunk_file
 from smritikosh.indexing.strategies._helpers import (
     build_chunk,
     chunk_id,
@@ -41,20 +41,20 @@ def test_should_delegate_chunking_entirely_to_strategy() -> None:
     captures = [cap("definition.function", node_for(p.content, "def foo(): pass"))]
     strategy = RecordingStrategy()
 
-    chunks = _chunk(p, captures, strategy)
+    chunks = chunk_file(p, captures, strategy)
 
     assert strategy.calls == [(p, captures)]
     assert chunks == [build_chunk(p.path, "delegated", "own", 1, 1)]
 
 
 def test_should_register_chunk_and_strategy_logic_for_memo_invalidation() -> None:
-    assert hasattr(_chunk, "_logic_fingerprint")
+    assert hasattr(chunk_file, "_logic_fingerprint")
     assert hasattr(AstChunkingStrategy.chunk, "_logic_fingerprint")
     assert hasattr(SectionChunkingStrategy.chunk, "_logic_fingerprint")
     assert hasattr(RegexChunkingStrategy.chunk, "_logic_fingerprint")
     assert hasattr(build_chunk, "_logic_fingerprint")
     assert {
-        _chunk._logic_fingerprint,  # type: ignore[attr-defined]
+        chunk_file._logic_fingerprint,  # type: ignore[attr-defined]
         AstChunkingStrategy.chunk._logic_fingerprint,  # type: ignore[attr-defined]
         SectionChunkingStrategy.chunk._logic_fingerprint,  # type: ignore[attr-defined]
         RegexChunkingStrategy.chunk._logic_fingerprint,  # type: ignore[attr-defined]

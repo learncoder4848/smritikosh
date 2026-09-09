@@ -56,7 +56,7 @@ def test_should_extract_expected_definition_for_each_query_language(
 ) -> None:
     parsed = _parse(language, source, path=f"example.{language}")
 
-    captures = extractor._extract(parsed, has_tags_scm=True)
+    captures = extractor.extract_file(parsed, has_tags_scm=True)
 
     assert captures == [
         Capture(
@@ -83,7 +83,7 @@ def test_should_return_empty_when_file_has_no_tags_query(
 
     monkeypatch.setattr(extractor, "_load_query", fail_if_called)
 
-    assert extractor._extract(parsed, has_tags_scm=False) == []
+    assert extractor.extract_file(parsed, has_tags_scm=False) == []
 
 
 def test_should_return_complete_capture_metadata_for_python_definitions() -> None:
@@ -99,7 +99,7 @@ class Client:
 """
     parsed = _parse("python", source, path="src/client.py")
 
-    captures = extractor._extract(parsed, has_tags_scm=True)
+    captures = extractor.extract_file(parsed, has_tags_scm=True)
 
     expected = [
         Capture(
@@ -154,4 +154,4 @@ def test_should_reuse_compiled_query_when_language_is_already_cached() -> None:
 
 
 def test_should_register_extractor_logic_for_memo_invalidation() -> None:
-    assert hasattr(extractor._extract, "_logic_fingerprint")
+    assert hasattr(extractor.extract_file, "_logic_fingerprint")
