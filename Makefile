@@ -1,6 +1,19 @@
 .PHONY: install install-root lock test cov check-wheel lint fmt check pre-commit-install pre-commit-run help
 
-POETRY ?= poetry
+# ── Tool selection ─────────────────────────────────────────────────────────────
+# Override on the command line:  make install TOOL=uv  or  export TOOL=uv
+TOOL ?= poetry
+
+ifeq ($(TOOL),uv)
+  _install      := uv sync --no-install-project
+  _install_root := uv sync
+  _lock         := uv lock
+else
+  POETRY ?= poetry
+  _install      := $(POETRY) install --no-root
+  _install_root := $(POETRY) install
+  _lock         := $(POETRY) lock
+endif
 
 # Call the venv's binaries directly so targets work without activating it.
 VENV := $(CURDIR)/.venv
@@ -15,9 +28,9 @@ FAST_TESTS := tests/engine/ tests/models/ tests/adapters/vector_store/ \
 
 help:
 	@echo "Available targets:"
-	@echo "  install             Install project dependencies with Poetry"
-	@echo "  install-root        Install dependencies and the project package"
-	@echo "  lock                Generate or update poetry.lock"
+	@echo "  install             Install project dependencies (TOOL=poetry|uv)"
+	@echo "  install-root        Install dependencies and the project package (TOOL=poetry|uv)"
+	@echo "  lock                Generate or update the lock file (TOOL=poetry|uv)"
 	@echo "  test                Run tests"
 	@echo "  cov                 Run tests with coverage report"
 	@echo "  check-wheel         Verify the built wheel carries the tags.scm files"
@@ -30,13 +43,13 @@ help:
 # ── Dependencies ──────────────────────────────────────────────────────────────
 
 install:
-	$(POETRY) install --no-root
+	$(_install)
 
 install-root:
-	$(POETRY) install
+	$(_install_root)
 
 lock:
-	$(POETRY) lock
+	$(_lock)
 
 # ── Test ──────────────────────────────────────────────────────────────────────
 
