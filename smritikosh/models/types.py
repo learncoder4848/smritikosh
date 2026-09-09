@@ -6,16 +6,6 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 
-class ChunkingStrategy(Protocol):
-    """Contract for all chunking strategies (routing + chunk production)."""
-
-    mode_name: str  # stable class-level constant used in @sm.memoized fingerprints
-
-    def chunk(self, parsed: ParsedFile, captures: list[Capture]) -> list[Chunk]:
-        """Split *parsed* into retrievable chunks using tree-sitter *captures*."""
-        ...
-
-
 @dataclass
 class Capture:
     """Represent a named definition found by a tree-sitter query.
@@ -35,22 +25,6 @@ class Capture:
     node: Any
     name: str
     path: str
-
-
-@dataclass
-class SourceFile:
-    """A source file selected for indexing."""
-
-    path: str
-    language: str
-    content: str
-    has_tags_scm: bool
-    strategy: ChunkingStrategy
-
-    @property
-    def chunking_mode(self) -> str:
-        """Return the stable chunking mode used for memo fingerprints."""
-        return self.strategy.mode_name
 
 
 @dataclass
@@ -99,3 +73,34 @@ class SearchResult:
     snippet: str
     score: float
     chunk_kind: str | None = None
+
+
+class ChunkingStrategy(Protocol):
+    """Contract for all chunking strategies.
+
+    mode_name is a stable class-level constant included in @sm.memoized
+    fingerprints; changing it or the chunk() implementation will invalidate
+    all downstream memos.
+    """
+
+    mode_name: str
+
+    def chunk(self, parsed: ParsedFile, captures: list[Capture]) -> list[Chunk]:
+        """Split *parsed* into retrievable chunks using tree-sitter *captures*."""
+        ...
+
+
+@dataclass
+class SourceFile:
+    """A source file selected for indexing."""
+
+    path: str
+    language: str
+    content: str
+    has_tags_scm: bool
+    strategy: ChunkingStrategy
+
+    @property
+    def chunking_mode(self) -> str:
+        """Return the stable chunking mode used for memo fingerprints."""
+        return self.strategy.mode_name

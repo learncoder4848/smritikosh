@@ -58,6 +58,18 @@ class TestDeduplicateByPriority:
 
         assert len(result) == 2
 
+    def test_sorted_by_start_byte(self) -> None:
+        content = "def first(): pass\ndef second(): pass\n"
+        second = node_for(content, "def second(): pass", node_id=2)
+        first = node_for(content, "def first(): pass", node_id=1)
+
+        result = _deduplicate_by_priority(
+            [cap("definition.function", second), cap("definition.function", first)],
+            CAPTURE_PRIORITY,
+        )
+
+        assert [c.node.id for c in result] == [1, 2]
+
 
 # ── _find_class_init ──────────────────────────────────────────────────────
 
@@ -77,7 +89,7 @@ class TestFindClassInit:
         init_node = node_for(content, "def __init__(self): pass")
         init_cap = cap("definition.class_init", init_node)
 
-        assert _find_class_init([init_cap], class_node, skip={id(init_cap)}) is None
+        assert _find_class_init([init_cap], class_node, skip={init_node.id}) is None
 
     def test_ignores_non_class_init_captures(self) -> None:
         content = "class Foo:\n    def method(self): pass\n"
