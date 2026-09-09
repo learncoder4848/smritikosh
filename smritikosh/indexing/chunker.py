@@ -5,7 +5,7 @@ from smritikosh.models import Capture, Chunk, ChunkingStrategy, ParsedFile
 
 
 @sm.tracked
-def _chunk(
+def chunk_file(
     parsed: ParsedFile,
     captures: list[Capture],
     strategy: ChunkingStrategy,
