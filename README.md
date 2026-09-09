@@ -66,6 +66,48 @@ The extractor stays under `indexing`: it transforms internal pipeline data
 
 See the [v1 plan](plan/version_1.md) for the complete design.
 
+## Installation
+
+Both **uv** and **Poetry** are supported. uv is recommended for local development
+— it resolves and installs the full dependency tree roughly 5× faster than
+Poetry, thanks to a Rust-based resolver and parallel downloads. (Measured on
+this project: uv locked 94 packages in ~46 s vs Poetry's ~3.5 min.)
+
+### uv (recommended)
+
+```bash
+# Install uv: https://docs.astral.sh/uv/getting-started/installation/
+uv sync                  # install deps + project into .venv
+uv sync --no-install-project  # deps only (skip the editable install)
+```
+
+### Poetry
+
+```bash
+# Requires Poetry >= 2.3
+poetry install           # install deps + project into .venv
+poetry install --no-root # deps only
+```
+
+### Running tests
+
+```bash
+# uv
+uv run pytest
+
+# Poetry / activated venv
+make test
+```
+
+Both tools create a `.venv` in the project root and share the same `Makefile`
+targets. Pass `TOOL=uv` or `TOOL=poetry` to override the default:
+
+```bash
+make install TOOL=uv
+make lock    TOOL=uv    # regenerates uv.lock
+make test               # always uses .venv/bin/python directly
+```
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for commit and PR conventions.
