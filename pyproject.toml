@@ -57,10 +57,10 @@ markers = ["slow: loads the real embedding model; skip with -m 'not slow'"]
 source = ["smritikosh"]
 
 [tool.coverage.report]
-# Baseline: 73 % (engine, strategies, and file selection tested; cli/parser/
-# chunker/pipeline stubs not yet implemented).
+# Baseline: 75 % (engine, strategies, file selection, and parsing tested;
+# cli/chunker/pipeline stubs not yet implemented).
 # Raise this threshold in the same PR that adds tests for each new module.
-fail_under = 70
+fail_under = 75
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",

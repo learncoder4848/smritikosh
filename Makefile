@@ -48,7 +48,7 @@ cov:
 	    --cov=smritikosh \
 	    --cov-report=term-missing \
 	    --cov-report=html:htmlcov \
-	    --cov-fail-under=70
+	    --cov-fail-under=75
 
 # The language directories under smritikosh/queries/ are not packages, so the
 # .scm files reach the wheel only through a package-data glob. Nothing in the
