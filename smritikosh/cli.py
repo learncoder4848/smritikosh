@@ -1,39 +1,205 @@
 """smritikosh CLI: index a repo, then search via vector similarity."""
 
+from __future__ import annotations
+
+import asyncio
+from typing import TYPE_CHECKING
+
 import click
+
+from smritikosh.adapters.embedder import EMBEDDER_CHOICES
+from smritikosh.constants import DEFAULT_DB_PATH
+
+if TYPE_CHECKING:
+    from smritikosh.adapters.storage.duckdb import DuckDBAdapter
+    from smritikosh.adapters.vector_store.duckdb import DuckDBVectorStore
+    from smritikosh.ports.embedder import Embedder
+    from smritikosh.ports.storage import StorageAdapter
+    from smritikosh.ports.vector_store import VectorStore
+
+
+# ── Embedder factory ──────────────────────────────────────────────────────────
+
+_EMBEDDER_CHOICES = click.Choice(EMBEDDER_CHOICES, case_sensitive=False)
+
+
+def _make_embedder(name: str) -> Embedder:
+    """Thin Click wrapper around :func:`smritikosh.adapters.embedder.make_embedder`.
+
+    Converts ``ValueError`` (unknown name) into :class:`click.BadParameter`
+    so it renders as a clean CLI error message.
+    """
+    from smritikosh.adapters.embedder import make_embedder
+
+    try:
+        return make_embedder(name)
+    except ValueError as exc:
+        raise click.BadParameter(str(exc), param_hint="--embedder") from exc
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+
+def _open_stores(db_path: str) -> tuple[DuckDBAdapter, DuckDBVectorStore]:
+    """Open and return a *(storage, vector_store)* pair sharing one DuckDB connection.
+
+    The caller is responsible for calling ``storage.close()`` when done;
+    ``vector_store`` shares the connection so only ``storage`` needs closing.
+    """
+    from smritikosh.adapters.storage.duckdb import DuckDBAdapter
+    from smritikosh.adapters.vector_store.duckdb import DuckDBVectorStore
+
+    storage = DuckDBAdapter(db_path)
+    vector_store = DuckDBVectorStore(db_path, con=storage.con)
+    return storage, vector_store
+
+
+async def _watch_loop(
+    repo_path: str,
+    embedder: Embedder,
+    storage: StorageAdapter,
+    vector_store: VectorStore,
+) -> None:
+    """Re-index whenever a file inside *repo_path* changes.
+
+    Requires the ``smritikosh[watch]`` optional extra (``watchfiles`` package).
+    ``build_index`` uses ``asyncio.run()`` internally, so it is dispatched via
+    ``asyncio.to_thread`` to run in a worker thread with its own event loop.
+    """
+    try:
+        from watchfiles import awatch  # type: ignore[import]
+    except ImportError as exc:
+        raise click.ClickException(
+            "watchfiles is required for --watch. "
+            "Install it with: pip install watchfiles"
+        ) from exc
+
+    from smritikosh.indexing.pipeline import build_index
+
+    async for changes in awatch(repo_path):
+        click.echo(f"  {len(changes)} change(s) detected — re-indexing …")
+        # build_index calls asyncio.run() internally; dispatch to a worker
+        # thread so it can create its own loop without conflicting with ours.
+        await asyncio.to_thread(build_index, repo_path, embedder, storage, vector_store)
+        click.echo("  Done.")
+
+
+# ── CLI group ─────────────────────────────────────────────────────────────────
 
 
 @click.group()
-def main():
+def main() -> None:
     """smritikosh -- semantic vector search over a codebase."""
+
+
+# ── smritikosh index ──────────────────────────────────────────────────────────
 
 
 @main.command()
 @click.argument("repo_path", type=click.Path(exists=True, file_okay=False))
 @click.option(
-    "--index-dir", default=".smritikosh", help="Directory to store indexes in."
+    "--embedder",
+    default="jina",
+    show_default=True,
+    type=_EMBEDDER_CHOICES,
+    help="Embedding backend.",
+)
+@click.option(
+    "--db-path",
+    default=DEFAULT_DB_PATH,
+    show_default=True,
+    type=click.Path(),
+    help="DuckDB database file.",
+)
+@click.option(
+    "--watch",
+    "-L",
+    is_flag=True,
+    help="Stay alive and re-index on file changes (requires watchfiles).",
 )
 @click.option(
     "--full",
     is_flag=True,
-    help="Force a full rebuild instead of an incremental update.",
+    help="Force a full rebuild (clears memo_cache + file_hashes).",
 )
-def index(repo_path: str, index_dir: str, full: bool):
-    """Build or incrementally update the index for REPO_PATH."""
+def index(repo_path: str, embedder: str, db_path: str, watch: bool, full: bool) -> None:
+    """Build or incrementally update the vector index for REPO_PATH."""
     from smritikosh.indexing.pipeline import build_index
 
-    build_index(repo_path, index_dir, incremental=not full)
+    emb = _make_embedder(embedder)
+    storage, vector_store = _open_stores(db_path)
+    try:
+        if full:
+            storage.clear_caches()
+            click.echo("Cleared incremental caches — full rebuild forced.")
+
+        click.echo(f"Indexing {repo_path!r} …")
+        build_index(repo_path, emb, storage, vector_store)
+        click.echo("Done.")
+
+        if watch:
+            click.echo(f"Watching {repo_path!r} for changes (Ctrl-C to stop) …")
+            try:
+                asyncio.run(_watch_loop(repo_path, emb, storage, vector_store))
+            except KeyboardInterrupt:
+                click.echo("\nWatch stopped.")
+    finally:
+        storage.close()
+
+
+# ── smritikosh search ─────────────────────────────────────────────────────────
 
 
 @main.command()
 @click.argument("query")
 @click.option(
-    "--index-dir", default=".smritikosh", help="Directory indexes were stored in."
+    "--top-k",
+    default=10,
+    show_default=True,
+    help="Number of results to return.",
 )
-@click.option("--top-k", default=10, help="Number of results to return.")
-def search(query: str, index_dir: str, top_k: int):
+@click.option(
+    "--db-path",
+    default=DEFAULT_DB_PATH,
+    show_default=True,
+    type=click.Path(),
+    help="DuckDB database file.",
+)
+@click.option(
+    "--embedder",
+    default="jina",
+    show_default=True,
+    type=_EMBEDDER_CHOICES,
+    help="Embedding backend (must match what was used at index time).",
+)
+def search(query: str, top_k: int, db_path: str, embedder: str) -> None:
     """Run a semantic search QUERY against the built vector index."""
-    raise NotImplementedError
+    from smritikosh.indexing.vector_index import VectorIndex
+
+    storage, vector_store = _open_stores(db_path)
+    results = []  # populated inside try; display happens after storage is closed
+    try:
+        if vector_store.get_stored_dims() is None:
+            raise click.ClickException(
+                f"No index found at {db_path!r}. "
+                "Run `smritikosh index <repo_path>` first."
+            )
+        emb = _make_embedder(embedder)
+        idx = VectorIndex(vector_store, storage, emb)
+        results = asyncio.run(idx.search(query, top_k))
+    finally:
+        storage.close()
+
+    if not results:
+        click.echo("No results found.")
+        return
+
+    for r in results:
+        line_range = f"{r.start_line}-{r.end_line}"
+        kind_str = f"  [{r.chunk_kind}]" if r.chunk_kind else ""
+        click.echo(f"\n{r.path}:{line_range}  score={r.score:.3f}{kind_str}")
+        for line in (r.snippet or "").splitlines():
+            click.echo(f"    {line}")
 
 
 if __name__ == "__main__":
