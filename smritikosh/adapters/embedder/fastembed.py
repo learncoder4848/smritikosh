@@ -62,6 +62,17 @@ class FastEmbedEmbedder(Embedder):
     def encode_queries(self, texts: list[str]) -> list[list[float]]:
         return [v.tolist() for v in self._load().query_embed(texts)]
 
+    # ── Pickle support ────────────────────────────────────────────────────────
+    # The engine's change-detection fingerprinting calls pickle.dumps(embedder).
+    # onnxruntime.InferenceSession (held inside TextEmbedding) is not picklable,
+    # so we exclude it.  _load() recreates the session lazily after unpickling.
+
+    def __getstate__(self) -> dict:
+        return {"_model_name": self._model_name, "_threads": self._threads, "_model": None}
+
+    def __setstate__(self, state: dict) -> None:
+        self.__dict__.update(state)
+
     # ── Internal ──────────────────────────────────────────────────────────────
 
     def _load(self) -> TextEmbedding:
