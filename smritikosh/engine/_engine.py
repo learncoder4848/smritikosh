@@ -95,7 +95,10 @@ class IncrementalEngine:
             to 32 on a large server.  Lower this on memory-constrained
             machines (e.g. ``concurrency=2`` for a ONNX model on Intel Mac).
         """
-        limit = concurrency or min(os.cpu_count() or 4, 32)
+        # Cap at 4 by default: ONNX models can be several hundred MB each;
+        # more than 4 concurrent _fire tasks risks OOM on typical dev machines.
+        # Pass an explicit concurrency= value to go higher on large servers.
+        limit = concurrency or min(os.cpu_count() or 2, 4)
         sem = asyncio.Semaphore(limit)
 
         async def _run_one(item: Any) -> Any:

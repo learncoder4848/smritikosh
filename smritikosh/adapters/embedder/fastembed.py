@@ -48,8 +48,19 @@ class FastEmbedEmbedder(Embedder):
 
     @property
     def dims(self) -> int:
-        # embedding_size is resolved from the model registry without a forward
-        # pass — no dummy text needed.
+        """Return the embedding dimension.
+
+        For models in fastembed's catalog this is resolved from the static
+        model registry — **no ONNX session is loaded** to answer this call.
+        The session is deferred until the first ``encode_*`` call, which
+        keeps peak memory low on memory-constrained machines.
+        """
+        from fastembed import TextEmbedding
+
+        for entry in TextEmbedding.list_supported_models():
+            if entry["model"].lower() == self._model_name.lower():
+                return entry["dim"]
+        # Custom / unlisted model — must load to discover dims.
         return self._load().embedding_size
 
     @property
