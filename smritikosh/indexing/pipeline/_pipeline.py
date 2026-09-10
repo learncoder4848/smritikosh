@@ -93,6 +93,7 @@ async def _run_pipeline(
     repo_path: str,
     *,
     file_concurrency: int | None = None,
+    max_inflight_bytes: int | None = None,
     on_file_indexed: Callable[[str], None] | None = None,
 ) -> None:
     """Discover files, clean up deleted ones, fan out process_file."""
@@ -115,6 +116,7 @@ async def _run_pipeline(
     await sm.fan_out(
         process_file, files,
         concurrency=file_concurrency,
+        max_inflight_bytes=max_inflight_bytes,
         item_done=_item_done,
     )
 
@@ -140,6 +142,7 @@ def build_index(
     storage: StorageAdapter | None = None,
     vector_store: VectorStore | None = None,
     file_concurrency: int | None = None,
+    max_inflight_bytes: int | None = None,
     on_file_indexed: Callable[[str], None] | None = None,
 ) -> None:
     """Build or incrementally update the vector index for *repo_path*.
@@ -156,8 +159,12 @@ def build_index(
         Defaults to DuckDBVectorStore sharing the storage connection.
     file_concurrency:
         Max files processed concurrently.  ``None`` auto-selects
-        ``min(cpu_count, 4)``.  Lower on memory-constrained machines
-        (e.g. ``file_concurrency=2`` for large ONNX models on Intel Mac).
+        ``min(cpu_count, 4)``.  Lower on memory-constrained machines.
+    max_inflight_bytes:
+        Optional byte budget.  When set, the total size of source files
+        being processed simultaneously is capped.  Files larger than the
+        budget wait for all others to finish before running alone.
+        E.g. ``100 * 1024 * 1024`` caps in-flight data at 100 MB.
     on_file_indexed:
         Optional callback called once per source file after it has been
         fully indexed (embedded + stored), including cache hits.  Receives
@@ -185,5 +192,6 @@ def build_index(
         asyncio.run(_run_pipeline(
             repo_path,
             file_concurrency=file_concurrency,
+            max_inflight_bytes=max_inflight_bytes,
             on_file_indexed=on_file_indexed,
         ))

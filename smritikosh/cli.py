@@ -128,8 +128,20 @@ def main() -> None:
     show_default=False,
     help=(
         "Max files processed concurrently. "
-        "Defaults to min(cpu_count, 32). "
+        "Defaults to min(cpu_count, 4). "
         "Lower on memory-constrained machines (e.g. --concurrency 2)."
+    ),
+)
+@click.option(
+    "--max-inflight-mb",
+    default=None,
+    type=int,
+    show_default=False,
+    help=(
+        "Max total MB of source-file content in-flight simultaneously. "
+        "Files larger than this budget wait for others to finish, then run alone. "
+        "E.g. --max-inflight-mb 100 caps concurrent content at 100 MB. "
+        "Defaults to no byte limit (row concurrency only)."
     ),
 )
 @click.option(
@@ -137,7 +149,7 @@ def main() -> None:
     is_flag=True,
     help="Force a full rebuild (clears memo_cache + file_hashes).",
 )
-def index(repo_path: str, embedder: str, concurrency: int | None, db_path: str, watch: bool, full: bool) -> None:
+def index(repo_path: str, embedder: str, concurrency: int | None, max_inflight_mb: int | None, db_path: str, watch: bool, full: bool) -> None:
     """Build or incrementally update the vector index for REPO_PATH."""
     from smritikosh.indexing.pipeline import build_index, count_source_files
 
@@ -166,6 +178,7 @@ def index(repo_path: str, embedder: str, concurrency: int | None, db_path: str, 
             build_index(
                 repo_path, emb, storage, vector_store,
                 file_concurrency=concurrency,
+                max_inflight_bytes=max_inflight_mb * 1024 * 1024 if max_inflight_mb else None,
                 on_file_indexed=_on_file,
             )
 

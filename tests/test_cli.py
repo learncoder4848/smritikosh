@@ -256,6 +256,42 @@ def test_index_concurrency_forwarded_to_build_index(runner, repo, db_path) -> No
     assert captured == [4]
 
 
+def test_index_max_inflight_mb_forwarded_as_bytes(runner, repo, db_path) -> None:
+    """--max-inflight-mb N should be converted to N*1024*1024 bytes."""
+    storage, vector_store = _mock_stores()
+    captured: list = []
+
+    with (
+        patch("smritikosh.cli._make_embedder", return_value=_StubEmbedder()),
+        patch("smritikosh.cli._open_stores", return_value=(storage, vector_store)),
+        patch(
+            "smritikosh.indexing.pipeline.build_index",
+            side_effect=lambda *a, **kw: captured.append(kw.get("max_inflight_bytes")),
+        ),
+    ):
+        runner.invoke(main, ["index", repo, "--max-inflight-mb", "100", "--db-path", db_path])
+
+    assert captured == [100 * 1024 * 1024]
+
+
+def test_index_max_inflight_mb_defaults_to_none(runner, repo, db_path) -> None:
+    """Omitting --max-inflight-mb passes None → no byte budget."""
+    storage, vector_store = _mock_stores()
+    captured: list = []
+
+    with (
+        patch("smritikosh.cli._make_embedder", return_value=_StubEmbedder()),
+        patch("smritikosh.cli._open_stores", return_value=(storage, vector_store)),
+        patch(
+            "smritikosh.indexing.pipeline.build_index",
+            side_effect=lambda *a, **kw: captured.append(kw.get("max_inflight_bytes")),
+        ),
+    ):
+        runner.invoke(main, ["index", repo, "--db-path", db_path])
+
+    assert captured == [None]
+
+
 def test_index_concurrency_defaults_to_none(runner, repo, db_path) -> None:
     """Omitting --concurrency passes None → engine auto-detects."""
     storage, vector_store = _mock_stores()
