@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+from collections.abc import Callable
 
 from smritikosh.adapters.embedder.fastembed import FastEmbedEmbedder
 from smritikosh.adapters.file_source.local import LocalFileSource
@@ -88,7 +89,12 @@ async def process_file(source: SourceFile) -> None:
 
 
 @sm.tracked
-async def _run_pipeline(repo_path: str, *, file_concurrency: int | None = None) -> None:
+async def _run_pipeline(
+    repo_path: str,
+    *,
+    file_concurrency: int | None = None,
+    on_file_indexed: Callable[[str], None] | None = None,
+) -> None:
     """Discover files, clean up deleted ones, fan out process_file."""
     storage     = use_context(STORAGE)
     file_source = LocalFileSource(repo_path)
@@ -102,10 +108,30 @@ async def _run_pipeline(repo_path: str, *, file_concurrency: int | None = None) 
         storage.delete_file(deleted)
         memo_store.delete_component("process_file", deleted)
 
-    await sm.fan_out(process_file, files, concurrency=file_concurrency)
+    def _item_done(source: SourceFile) -> None:
+        if on_file_indexed is not None:
+            on_file_indexed(source.path)
+
+    await sm.fan_out(
+        process_file, files,
+        concurrency=file_concurrency,
+        item_done=_item_done,
+    )
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
+
+
+def count_source_files(repo_path: str) -> int:
+    """Return the number of source files that would be indexed in *repo_path*.
+
+    Uses the same router and filters as :func:`build_index` so the count
+    matches exactly what the pipeline will process.  Runs in milliseconds —
+    no embedding or DB work is performed.
+    """
+    return sum(
+        1 for _ in iter_source_files(LocalFileSource(repo_path), _build_router())
+    )
 
 
 def build_index(
@@ -114,6 +140,7 @@ def build_index(
     storage: StorageAdapter | None = None,
     vector_store: VectorStore | None = None,
     file_concurrency: int | None = None,
+    on_file_indexed: Callable[[str], None] | None = None,
 ) -> None:
     """Build or incrementally update the vector index for *repo_path*.
 
@@ -129,8 +156,12 @@ def build_index(
         Defaults to DuckDBVectorStore sharing the storage connection.
     file_concurrency:
         Max files processed concurrently.  ``None`` auto-selects
-        ``min(cpu_count, 32)``.  Lower on memory-constrained machines
+        ``min(cpu_count, 4)``.  Lower on memory-constrained machines
         (e.g. ``file_concurrency=2`` for large ONNX models on Intel Mac).
+    on_file_indexed:
+        Optional callback called once per source file after it has been
+        fully indexed (embedded + stored), including cache hits.  Receives
+        the file path as a string.  Used by the CLI to drive progress bars.
     """
     embedder = embedder or FastEmbedEmbedder()
     storage  = storage  or DuckDBAdapter(DEFAULT_DB_PATH)
@@ -151,4 +182,8 @@ def build_index(
     ctx.provide(VECTOR_STORE, vector_store)
 
     with ctx:
-        asyncio.run(_run_pipeline(repo_path, file_concurrency=file_concurrency))
+        asyncio.run(_run_pipeline(
+            repo_path,
+            file_concurrency=file_concurrency,
+            on_file_indexed=on_file_indexed,
+        ))

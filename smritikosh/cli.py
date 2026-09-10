@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import TYPE_CHECKING
 
 import click
@@ -138,7 +139,7 @@ def main() -> None:
 )
 def index(repo_path: str, embedder: str, concurrency: int | None, db_path: str, watch: bool, full: bool) -> None:
     """Build or incrementally update the vector index for REPO_PATH."""
-    from smritikosh.indexing.pipeline import build_index
+    from smritikosh.indexing.pipeline import build_index, count_source_files
 
     emb = _make_embedder(embedder)
     storage, vector_store = _open_stores(db_path)
@@ -147,9 +148,29 @@ def index(repo_path: str, embedder: str, concurrency: int | None, db_path: str, 
             storage.clear_caches()
             click.echo("Cleared incremental caches — full rebuild forced.")
 
-        click.echo(f"Indexing {repo_path!r} …")
-        build_index(repo_path, emb, storage, vector_store, file_concurrency=concurrency)
-        click.echo("Done.")
+        n_files = count_source_files(repo_path)
+        click.echo(f"Indexing {repo_path!r} — {n_files} source file(s) …")
+
+        t0 = time.perf_counter()
+        with click.progressbar(
+            length=n_files,
+            show_eta=True,
+            show_percent=True,
+            bar_template="  %(bar)s  %(info)s",
+            fill_char="█",
+            empty_char="░",
+        ) as bar:
+            def _on_file(path: str) -> None:  # noqa: E306
+                bar.update(1)
+
+            build_index(
+                repo_path, emb, storage, vector_store,
+                file_concurrency=concurrency,
+                on_file_indexed=_on_file,
+            )
+
+        elapsed = time.perf_counter() - t0
+        click.echo(f"Done in {elapsed:.1f}s.")
 
         if watch:
             click.echo(f"Watching {repo_path!r} for changes (Ctrl-C to stop) …")
@@ -192,6 +213,7 @@ def search(query: str, top_k: int, db_path: str, embedder: str) -> None:
 
     storage, vector_store = _open_stores(db_path)
     results = []  # populated inside try; display happens after storage is closed
+    t0 = time.perf_counter()
     try:
         if vector_store.get_stored_dims() is None:
             raise click.ClickException(
@@ -204,16 +226,20 @@ def search(query: str, top_k: int, db_path: str, embedder: str) -> None:
     finally:
         storage.close()
 
+    elapsed_ms = (time.perf_counter() - t0) * 1000
+
     if not results:
-        click.echo("No results found.")
+        click.echo(f"No results found.  ({elapsed_ms:.0f} ms)")
         return
 
+    click.echo(f"Found {len(results)} result(s) in {elapsed_ms:.0f} ms:\n")
     for r in results:
         line_range = f"{r.start_line}-{r.end_line}"
         kind_str = f"  [{r.chunk_kind}]" if r.chunk_kind else ""
-        click.echo(f"\n{r.path}:{line_range}  score={r.score:.3f}{kind_str}")
+        click.echo(f"{r.path}:{line_range}  score={r.score:.3f}{kind_str}")
         for line in (r.snippet or "").splitlines():
             click.echo(f"    {line}")
+        click.echo()
 
 
 if __name__ == "__main__":

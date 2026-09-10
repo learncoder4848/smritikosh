@@ -77,6 +77,7 @@ class IncrementalEngine:
         items: list[Any],
         *,
         concurrency: int | None = None,
+        item_done: Callable[[Any], None] | None = None,
     ) -> None:
         """Run ``fn`` concurrently over *items*, each in its **own** component path.
 
@@ -105,7 +106,12 @@ class IncrementalEngine:
             item_key: str = getattr(item, "path", str(item))
             async with sem:
                 async with _component_context(f"{fn.__name__}/{item_key}"):
-                    return await fn(item)
+                    result = await fn(item)
+            # Fire outside the semaphore — progress update is cheap and
+            # shouldn't block the next item from starting.
+            if item_done is not None:
+                item_done(item)
+            return result
 
         await asyncio.gather(*[_run_one(item) for item in items])
 

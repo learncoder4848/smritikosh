@@ -154,7 +154,7 @@ def test_index_exits_zero_and_prints_done(runner, repo, db_path) -> None:
         result = runner.invoke(main, ["index", repo, "--db-path", db_path])
 
     assert result.exit_code == 0
-    assert "Done." in result.output
+    assert "Done in" in result.output
 
 
 def test_index_full_clears_caches_before_build(runner, repo, db_path) -> None:
