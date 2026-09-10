@@ -88,7 +88,7 @@ async def process_file(source: SourceFile) -> None:
 
 
 @sm.tracked
-async def _run_pipeline(repo_path: str) -> None:
+async def _run_pipeline(repo_path: str, *, file_concurrency: int | None = None) -> None:
     """Discover files, clean up deleted ones, fan out process_file."""
     storage     = use_context(STORAGE)
     file_source = LocalFileSource(repo_path)
@@ -102,7 +102,7 @@ async def _run_pipeline(repo_path: str) -> None:
         storage.delete_file(deleted)
         memo_store.delete_component("process_file", deleted)
 
-    await sm.fan_out(process_file, files)
+    await sm.fan_out(process_file, files, concurrency=file_concurrency)
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
@@ -113,6 +113,7 @@ def build_index(
     embedder: Embedder | None = None,
     storage: StorageAdapter | None = None,
     vector_store: VectorStore | None = None,
+    file_concurrency: int | None = None,
 ) -> None:
     """Build or incrementally update the vector index for *repo_path*.
 
@@ -126,6 +127,10 @@ def build_index(
         Defaults to DuckDBAdapter writing to ``smritikosh.duckdb``.
     vector_store:
         Defaults to DuckDBVectorStore sharing the storage connection.
+    file_concurrency:
+        Max files processed concurrently.  ``None`` auto-selects
+        ``min(cpu_count, 32)``.  Lower on memory-constrained machines
+        (e.g. ``file_concurrency=2`` for large ONNX models on Intel Mac).
     """
     embedder = embedder or FastEmbedEmbedder()
     storage  = storage  or DuckDBAdapter(DEFAULT_DB_PATH)
@@ -146,4 +151,4 @@ def build_index(
     ctx.provide(VECTOR_STORE, vector_store)
 
     with ctx:
-        asyncio.run(_run_pipeline(repo_path))
+        asyncio.run(_run_pipeline(repo_path, file_concurrency=file_concurrency))

@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 _EMBEDDER_CHOICES = click.Choice(EMBEDDER_CHOICES, case_sensitive=False)
 
 
-def _make_embedder(name: str, model: str | None = None) -> Embedder:
+def _make_embedder(name: str) -> Embedder:
     """Thin Click wrapper around :func:`smritikosh.adapters.embedder.make_embedder`.
 
     Converts ``ImportError`` (missing adapter package) into
@@ -33,7 +33,7 @@ def _make_embedder(name: str, model: str | None = None) -> Embedder:
     from smritikosh.adapters.embedder import make_embedder
 
     try:
-        return make_embedder(name, model=model)
+        return make_embedder(name)
     except ImportError as exc:
         raise click.ClickException(str(exc)) from exc
     except ValueError as exc:
@@ -121,13 +121,14 @@ def main() -> None:
     help="Stay alive and re-index on file changes (requires watchfiles).",
 )
 @click.option(
-    "--model",
+    "--concurrency",
     default=None,
+    type=int,
     show_default=False,
     help=(
-        "fastembed model name (e.g. 'Snowflake/snowflake-arctic-embed-xs'). "
-        "Only applies to --embedder fastembed. "
-        "Defaults to the value of DEFAULT_MODEL in smritikosh.constants."
+        "Max files processed concurrently. "
+        "Defaults to min(cpu_count, 32). "
+        "Lower on memory-constrained machines (e.g. --concurrency 2)."
     ),
 )
 @click.option(
@@ -135,14 +136,11 @@ def main() -> None:
     is_flag=True,
     help="Force a full rebuild (clears memo_cache + file_hashes).",
 )
-def index(repo_path: str, embedder: str, model: str | None, db_path: str, watch: bool, full: bool) -> None:
+def index(repo_path: str, embedder: str, concurrency: int | None, db_path: str, watch: bool, full: bool) -> None:
     """Build or incrementally update the vector index for REPO_PATH."""
     from smritikosh.indexing.pipeline import build_index
 
-    if model and embedder.lower() != "fastembed":
-        raise click.UsageError("--model is only supported with --embedder fastembed.")
-
-    emb = _make_embedder(embedder, model)
+    emb = _make_embedder(embedder)
     storage, vector_store = _open_stores(db_path)
     try:
         if full:
@@ -150,7 +148,7 @@ def index(repo_path: str, embedder: str, model: str | None, db_path: str, watch:
             click.echo("Cleared incremental caches — full rebuild forced.")
 
         click.echo(f"Indexing {repo_path!r} …")
-        build_index(repo_path, emb, storage, vector_store)
+        build_index(repo_path, emb, storage, vector_store, file_concurrency=concurrency)
         click.echo("Done.")
 
         if watch:
@@ -188,21 +186,9 @@ def index(repo_path: str, embedder: str, model: str | None, db_path: str, watch:
     type=_EMBEDDER_CHOICES,
     help="Embedding backend (must match what was used at index time).",
 )
-@click.option(
-    "--model",
-    default=None,
-    show_default=False,
-    help=(
-        "fastembed model name. Must match the model used at index time. "
-        "Only applies to --embedder fastembed."
-    ),
-)
-def search(query: str, top_k: int, db_path: str, embedder: str, model: str | None) -> None:
+def search(query: str, top_k: int, db_path: str, embedder: str) -> None:
     """Run a semantic search QUERY against the built vector index."""
     from smritikosh.indexing.vector_index import VectorIndex
-
-    if model and embedder.lower() != "fastembed":
-        raise click.UsageError("--model is only supported with --embedder fastembed.")
 
     storage, vector_store = _open_stores(db_path)
     results = []  # populated inside try; display happens after storage is closed
@@ -212,7 +198,7 @@ def search(query: str, top_k: int, db_path: str, embedder: str, model: str | Non
                 f"No index found at {db_path!r}. "
                 "Run `smritikosh index <repo_path>` first."
             )
-        emb = _make_embedder(embedder, model)
+        emb = _make_embedder(embedder)
         idx = VectorIndex(vector_store, storage, emb)
         results = asyncio.run(idx.search(query, top_k))
     finally:

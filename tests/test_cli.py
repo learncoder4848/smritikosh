@@ -109,14 +109,6 @@ def test_make_embedder_fastembed_is_case_insensitive() -> None:
         assert isinstance(_make_embedder(variant), FastEmbedEmbedder), variant
 
 
-def test_make_embedder_accepts_model_kwarg() -> None:
-    from smritikosh.adapters.embedder.fastembed import FastEmbedEmbedder
-
-    emb = _make_embedder("fastembed", "BAAI/bge-small-en-v1.5")
-    assert isinstance(emb, FastEmbedEmbedder)
-    assert emb._model_name == "BAAI/bge-small-en-v1.5"
-
-
 def test_make_embedder_unknown_name_raises_bad_parameter() -> None:
     import click
 
@@ -176,7 +168,7 @@ def test_index_full_clears_caches_before_build(runner, repo, db_path) -> None:
         patch("smritikosh.cli._open_stores", return_value=(storage, vector_store)),
         patch(
             "smritikosh.indexing.pipeline.build_index",
-            side_effect=lambda *_: call_order.append("build"),
+                side_effect=lambda *_, **__: call_order.append("build"),
         ),
     ):
         result = runner.invoke(main, ["index", repo, "--db-path", db_path, "--full"])
@@ -246,36 +238,40 @@ def test_index_storage_closed_when_build_raises(runner, repo, db_path) -> None:
     storage.close.assert_called_once()
 
 
-def test_index_model_flag_is_forwarded_to_embedder(runner, repo, db_path) -> None:
-    """--model should be passed through to FastEmbedEmbedder."""
+def test_index_concurrency_forwarded_to_build_index(runner, repo, db_path) -> None:
+    """--concurrency should be passed through to build_index as file_concurrency."""
     storage, vector_store = _mock_stores()
-    captured: list[str] = []
-
-    def fake_make(name: str, model: str | None = None) -> _StubEmbedder:
-        captured.append(model or "")
-        return _StubEmbedder()
+    captured: list[int | None] = []
 
     with (
-        patch("smritikosh.cli._make_embedder", side_effect=fake_make),
+        patch("smritikosh.cli._make_embedder", return_value=_StubEmbedder()),
         patch("smritikosh.cli._open_stores", return_value=(storage, vector_store)),
-        patch("smritikosh.indexing.pipeline.build_index"),
+        patch(
+            "smritikosh.indexing.pipeline.build_index",
+            side_effect=lambda *a, **kw: captured.append(kw.get("file_concurrency")),
+        ),
     ):
-        runner.invoke(
-            main,
-            ["index", repo, "--model", "BAAI/bge-small-en-v1.5", "--db-path", db_path],
-        )
+        runner.invoke(main, ["index", repo, "--concurrency", "4", "--db-path", db_path])
 
-    assert captured == ["BAAI/bge-small-en-v1.5"]
+    assert captured == [4]
 
 
-def test_index_model_with_non_fastembed_raises_usage_error(runner, repo, db_path) -> None:
-    result = runner.invoke(
-        main,
-        ["index", repo, "--embedder", "voyage", "--model", "some-model", "--db-path", db_path],
-    )
+def test_index_concurrency_defaults_to_none(runner, repo, db_path) -> None:
+    """Omitting --concurrency passes None → engine auto-detects."""
+    storage, vector_store = _mock_stores()
+    captured: list[int | None] = []
 
-    assert result.exit_code != 0
-    assert "only supported with --embedder fastembed" in result.output
+    with (
+        patch("smritikosh.cli._make_embedder", return_value=_StubEmbedder()),
+        patch("smritikosh.cli._open_stores", return_value=(storage, vector_store)),
+        patch(
+            "smritikosh.indexing.pipeline.build_index",
+            side_effect=lambda *a, **kw: captured.append(kw.get("file_concurrency")),
+        ),
+    ):
+        runner.invoke(main, ["index", repo, "--db-path", db_path])
+
+    assert captured == [None]
 
 
 def test_index_rejects_invalid_embedder_name(runner, repo, db_path) -> None:

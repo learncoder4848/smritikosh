@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 from collections.abc import Callable
 from typing import Any
 
@@ -70,7 +71,13 @@ class IncrementalEngine:
         """
         return list(await asyncio.gather(*[fn(item) for item in items]))
 
-    async def fan_out(self, fn: Callable[..., Any], items: list[Any]) -> None:
+    async def fan_out(
+        self,
+        fn: Callable[..., Any],
+        items: list[Any],
+        *,
+        concurrency: int | None = None,
+    ) -> None:
         """Run ``fn`` concurrently over *items*, each in its **own** component path.
 
         Component path is ``"{fn.__name__}/{item.path}"`` when *item* has a
@@ -78,12 +85,24 @@ class IncrementalEngine:
 
         This creates stable memo boundaries so that each file's cache entries
         are stored and invalidated independently.
+
+        Parameters
+        ----------
+        concurrency:
+            Maximum number of items processed at the same time.  ``None``
+            (default) auto-selects ``min(os.cpu_count() or 4, 32)``, which
+            scales naturally with the machine: 4 on a quad-core laptop, up
+            to 32 on a large server.  Lower this on memory-constrained
+            machines (e.g. ``concurrency=2`` for a ONNX model on Intel Mac).
         """
+        limit = concurrency or min(os.cpu_count() or 4, 32)
+        sem = asyncio.Semaphore(limit)
 
         async def _run_one(item: Any) -> Any:
             item_key: str = getattr(item, "path", str(item))
-            async with _component_context(f"{fn.__name__}/{item_key}"):
-                return await fn(item)
+            async with sem:
+                async with _component_context(f"{fn.__name__}/{item_key}"):
+                    return await fn(item)
 
         await asyncio.gather(*[_run_one(item) for item in items])
 
