@@ -150,10 +150,11 @@ def main() -> None:
     show_default=False,
     help=(
         "fastembed model name. Defaults to DEFAULT_MODEL "
-        "(jinaai/jina-embeddings-v2-base-code, 768d/8192-token context). "
-        "On CPU-only machines prefer a smaller model, e.g. "
-        "'Snowflake/snowflake-arctic-embed-xs' (384d/512-token) which is "
-        "roughly 10x faster. Only applies to --embedder fastembed."
+        "(BAAI/bge-small-en-v1.5, 384d/512-token context). "
+        "Use 'sentence-transformers/all-MiniLM-L6-v2' for ~10x more "
+        "throughput at slightly lower recall, or "
+        "'jinaai/jina-embeddings-v2-base-code' for an 8192-token context "
+        "when chunks are very large. Only applies to --embedder fastembed."
     ),
 )
 @click.option(

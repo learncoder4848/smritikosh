@@ -1,8 +1,10 @@
 """Local embedding backend — fastembed + ONNX Runtime, no PyTorch, CPU-only.
 
 Any model listed by ``TextEmbedding.list_supported_models()`` is accepted.
-The default (``jinaai/jina-embeddings-v2-base-code``) is code-specific:
-30 programming languages, 8 192-token context, 768 dims, 0.64 GB on disk.
+The default (``BAAI/bge-small-en-v1.5``) is a 384-dim encoder with a
+512-token context, 67 MB on disk.  Encoder models process all tokens in
+parallel, which is what makes them viable on CPU; long-context decoder
+models cost O(n^2) attention per chunk for little retrieval gain on code.
 """
 
 from __future__ import annotations
