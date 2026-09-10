@@ -109,6 +109,14 @@ def test_make_embedder_fastembed_is_case_insensitive() -> None:
         assert isinstance(_make_embedder(variant), FastEmbedEmbedder), variant
 
 
+def test_make_embedder_accepts_model_kwarg() -> None:
+    from smritikosh.adapters.embedder.fastembed import FastEmbedEmbedder
+
+    emb = _make_embedder("fastembed", "BAAI/bge-small-en-v1.5")
+    assert isinstance(emb, FastEmbedEmbedder)
+    assert emb._model_name == "BAAI/bge-small-en-v1.5"
+
+
 def test_make_embedder_unknown_name_raises_bad_parameter() -> None:
     import click
 
@@ -236,6 +244,38 @@ def test_index_storage_closed_when_build_raises(runner, repo, db_path) -> None:
         runner.invoke(main, ["index", repo, "--db-path", db_path])
 
     storage.close.assert_called_once()
+
+
+def test_index_model_flag_is_forwarded_to_embedder(runner, repo, db_path) -> None:
+    """--model should be passed through to FastEmbedEmbedder."""
+    storage, vector_store = _mock_stores()
+    captured: list[str] = []
+
+    def fake_make(name: str, model: str | None = None) -> _StubEmbedder:
+        captured.append(model or "")
+        return _StubEmbedder()
+
+    with (
+        patch("smritikosh.cli._make_embedder", side_effect=fake_make),
+        patch("smritikosh.cli._open_stores", return_value=(storage, vector_store)),
+        patch("smritikosh.indexing.pipeline.build_index"),
+    ):
+        runner.invoke(
+            main,
+            ["index", repo, "--model", "BAAI/bge-small-en-v1.5", "--db-path", db_path],
+        )
+
+    assert captured == ["BAAI/bge-small-en-v1.5"]
+
+
+def test_index_model_with_non_fastembed_raises_usage_error(runner, repo, db_path) -> None:
+    result = runner.invoke(
+        main,
+        ["index", repo, "--embedder", "voyage", "--model", "some-model", "--db-path", db_path],
+    )
+
+    assert result.exit_code != 0
+    assert "only supported with --embedder fastembed" in result.output
 
 
 def test_index_rejects_invalid_embedder_name(runner, repo, db_path) -> None:
