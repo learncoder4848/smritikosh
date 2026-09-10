@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 _EMBEDDER_CHOICES = click.Choice(EMBEDDER_CHOICES, case_sensitive=False)
 
 
-def _make_embedder(name: str) -> Embedder:
+def _make_embedder(name: str, model: str | None = None) -> Embedder:
     """Thin Click wrapper around :func:`smritikosh.adapters.embedder.make_embedder`.
 
     Converts ``ImportError`` (missing adapter package) into
@@ -34,7 +34,7 @@ def _make_embedder(name: str) -> Embedder:
     from smritikosh.adapters.embedder import make_embedder
 
     try:
-        return make_embedder(name)
+        return make_embedder(name, model=model)
     except ImportError as exc:
         raise click.ClickException(str(exc)) from exc
     except ValueError as exc:
@@ -145,15 +145,39 @@ def main() -> None:
     ),
 )
 @click.option(
+    "--model",
+    default=None,
+    show_default=False,
+    help=(
+        "fastembed model name. Defaults to DEFAULT_MODEL "
+        "(jinaai/jina-embeddings-v2-base-code, 768d/8192-token context). "
+        "On CPU-only machines prefer a smaller model, e.g. "
+        "'Snowflake/snowflake-arctic-embed-xs' (384d/512-token) which is "
+        "roughly 10x faster. Only applies to --embedder fastembed."
+    ),
+)
+@click.option(
     "--full",
     is_flag=True,
     help="Force a full rebuild (clears memo_cache + file_hashes).",
 )
-def index(repo_path: str, embedder: str, concurrency: int | None, max_inflight_mb: int | None, db_path: str, watch: bool, full: bool) -> None:
+def index(
+    repo_path: str,
+    embedder: str,
+    concurrency: int | None,
+    max_inflight_mb: int | None,
+    model: str | None,
+    db_path: str,
+    watch: bool,
+    full: bool,
+) -> None:
     """Build or incrementally update the vector index for REPO_PATH."""
     from smritikosh.indexing.pipeline import build_index, count_source_files
 
-    emb = _make_embedder(embedder)
+    if model and embedder.lower() != "fastembed":
+        raise click.UsageError("--model is only supported with --embedder fastembed.")
+
+    emb = _make_embedder(embedder, model)
     storage, vector_store = _open_stores(db_path)
     try:
         if full:
@@ -162,6 +186,8 @@ def index(repo_path: str, embedder: str, concurrency: int | None, max_inflight_m
 
         n_files = count_source_files(repo_path)
         click.echo(f"Indexing {repo_path!r} — {n_files} source file(s) …")
+
+        inflight_bytes = max_inflight_mb * 1024 * 1024 if max_inflight_mb else None
 
         t0 = time.perf_counter()
         with click.progressbar(
@@ -178,7 +204,7 @@ def index(repo_path: str, embedder: str, concurrency: int | None, max_inflight_m
             build_index(
                 repo_path, emb, storage, vector_store,
                 file_concurrency=concurrency,
-                max_inflight_bytes=max_inflight_mb * 1024 * 1024 if max_inflight_mb else None,
+                max_inflight_bytes=inflight_bytes,
                 on_file_indexed=_on_file,
             )
 
@@ -220,9 +246,27 @@ def index(repo_path: str, embedder: str, concurrency: int | None, max_inflight_m
     type=_EMBEDDER_CHOICES,
     help="Embedding backend (must match what was used at index time).",
 )
-def search(query: str, top_k: int, db_path: str, embedder: str) -> None:
+@click.option(
+    "--model",
+    default=None,
+    show_default=False,
+    help=(
+        "fastembed model name. Must match the model used at index time, "
+        "otherwise the query vector will not match the stored dimensions."
+    ),
+)
+def search(
+    query: str,
+    top_k: int,
+    db_path: str,
+    embedder: str,
+    model: str | None,
+) -> None:
     """Run a semantic search QUERY against the built vector index."""
     from smritikosh.indexing.vector_index import VectorIndex
+
+    if model and embedder.lower() != "fastembed":
+        raise click.UsageError("--model is only supported with --embedder fastembed.")
 
     storage, vector_store = _open_stores(db_path)
     results = []  # populated inside try; display happens after storage is closed
@@ -233,7 +277,7 @@ def search(query: str, top_k: int, db_path: str, embedder: str) -> None:
                 f"No index found at {db_path!r}. "
                 "Run `smritikosh index <repo_path>` first."
             )
-        emb = _make_embedder(embedder)
+        emb = _make_embedder(embedder, model)
         idx = VectorIndex(vector_store, storage, emb)
         results = asyncio.run(idx.search(query, top_k))
     finally:

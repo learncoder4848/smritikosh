@@ -25,11 +25,18 @@ __all__ = ["EMBEDDER_CHOICES", "make_embedder"]
 EMBEDDER_CHOICES: list[str] = ["fastembed", "voyage", "openai"]
 
 
-def make_embedder(name: str) -> Embedder:
+def make_embedder(name: str, *, model: str | None = None) -> Embedder:
     """Instantiate the :class:`~smritikosh.ports.embedder.Embedder` for *name*.
 
     *name* is normalised to lowercase so ``"FastEmbed"`` and ``"FASTEMBED"``
     both work.
+
+    Parameters
+    ----------
+    model:
+        For the ``fastembed`` backend only — any model listed by
+        ``TextEmbedding.list_supported_models()``.  ``None`` uses
+        :data:`~smritikosh.constants.DEFAULT_MODEL`.
 
     Raises
     ------
@@ -42,7 +49,7 @@ def make_embedder(name: str) -> Embedder:
     if name == "fastembed":
         from smritikosh.adapters.embedder.fastembed import FastEmbedEmbedder
 
-        return FastEmbedEmbedder()
+        return FastEmbedEmbedder(model) if model else FastEmbedEmbedder()
     if name == "voyage":
         try:
             from smritikosh.adapters.embedder.voyage import (

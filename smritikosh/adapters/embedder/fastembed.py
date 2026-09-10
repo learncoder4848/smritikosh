@@ -79,7 +79,11 @@ class FastEmbedEmbedder(Embedder):
     # so we exclude it.  _load() recreates the session lazily after unpickling.
 
     def __getstate__(self) -> dict:
-        return {"_model_name": self._model_name, "_threads": self._threads, "_model": None}
+        return {
+            "_model_name": self._model_name,
+            "_threads": self._threads,
+            "_model": None,
+        }
 
     def __setstate__(self, state: dict) -> None:
         self.__dict__.update(state)

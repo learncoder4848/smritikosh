@@ -256,6 +256,72 @@ def test_index_concurrency_forwarded_to_build_index(runner, repo, db_path) -> No
     assert captured == [4]
 
 
+def test_index_model_flag_forwarded_to_make_embedder(runner, repo, db_path) -> None:
+    """--model must reach _make_embedder as the second positional argument."""
+    storage, vector_store = _mock_stores()
+    captured: list[str | None] = []
+
+    def fake_make(name: str, model: str | None = None) -> _StubEmbedder:
+        captured.append(model)
+        return _StubEmbedder()
+
+    with (
+        patch("smritikosh.cli._make_embedder", side_effect=fake_make),
+        patch("smritikosh.cli._open_stores", return_value=(storage, vector_store)),
+        patch("smritikosh.indexing.pipeline.build_index"),
+    ):
+        runner.invoke(
+            main,
+            ["index", repo, "--model", "BAAI/bge-small-en-v1.5", "--db-path", db_path],
+        )
+
+    assert captured == ["BAAI/bge-small-en-v1.5"]
+
+
+def test_index_model_with_non_fastembed_backend_is_rejected(
+    runner, repo, db_path
+) -> None:
+    result = runner.invoke(
+        main,
+        ["index", repo, "--embedder", "voyage", "--model", "m", "--db-path", db_path],
+    )
+
+    assert result.exit_code != 0
+    assert "only supported with --embedder fastembed" in result.output
+
+
+def test_search_model_flag_forwarded_to_make_embedder(runner, db_path) -> None:
+    storage, vector_store = _mock_stores(dims=3)
+    mock_idx = MagicMock()
+    mock_idx.search = AsyncMock(return_value=[])
+    captured: list[str | None] = []
+
+    def fake_make(name: str, model: str | None = None) -> _StubEmbedder:
+        captured.append(model)
+        return _StubEmbedder()
+
+    with (
+        patch("smritikosh.cli._open_stores", return_value=(storage, vector_store)),
+        patch("smritikosh.cli._make_embedder", side_effect=fake_make),
+        patch("smritikosh.indexing.vector_index.VectorIndex", return_value=mock_idx),
+    ):
+        runner.invoke(
+            main,
+            ["search", "q", "--model", "BAAI/bge-small-en-v1.5", "--db-path", db_path],
+        )
+
+    assert captured == ["BAAI/bge-small-en-v1.5"]
+
+
+def test_make_embedder_passes_model_through_to_adapter() -> None:
+    from smritikosh.adapters.embedder.fastembed import FastEmbedEmbedder
+
+    emb = _make_embedder("fastembed", "BAAI/bge-small-en-v1.5")
+
+    assert isinstance(emb, FastEmbedEmbedder)
+    assert emb._model_name == "BAAI/bge-small-en-v1.5"
+
+
 def test_index_max_inflight_mb_forwarded_as_bytes(runner, repo, db_path) -> None:
     """--max-inflight-mb N should be converted to N*1024*1024 bytes."""
     storage, vector_store = _mock_stores()
@@ -269,7 +335,9 @@ def test_index_max_inflight_mb_forwarded_as_bytes(runner, repo, db_path) -> None
             side_effect=lambda *a, **kw: captured.append(kw.get("max_inflight_bytes")),
         ),
     ):
-        runner.invoke(main, ["index", repo, "--max-inflight-mb", "100", "--db-path", db_path])
+        runner.invoke(
+            main, ["index", repo, "--max-inflight-mb", "100", "--db-path", db_path]
+        )
 
     assert captured == [100 * 1024 * 1024]
 
