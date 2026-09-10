@@ -15,7 +15,7 @@ from smritikosh.adapters.embedder import EMBEDDER_CHOICES, make_embedder
 
 
 def test_embedder_choices_contains_all_supported_backends() -> None:
-    assert set(EMBEDDER_CHOICES) == {"jina"}
+    assert set(EMBEDDER_CHOICES) == {"fastembed", "voyage", "openai"}
 
 
 def test_embedder_choices_is_a_list_of_strings() -> None:
@@ -23,24 +23,33 @@ def test_embedder_choices_is_a_list_of_strings() -> None:
     assert all(isinstance(c, str) for c in EMBEDDER_CHOICES)
 
 
-# ── make_embedder — jina ──────────────────────────────────────────────────────
+# ── make_embedder — fastembed ─────────────────────────────────────────────────
 
 
-def test_make_embedder_jina_returns_sentence_transformer_embedder() -> None:
-    from smritikosh.adapters.embedder.sentence_transformer import (
-        SentenceTransformerEmbedder,
-    )
+def test_make_embedder_fastembed_returns_fast_embed_embedder() -> None:
+    from smritikosh.adapters.embedder.fastembed import FastEmbedEmbedder
 
-    assert isinstance(make_embedder("jina"), SentenceTransformerEmbedder)
+    assert isinstance(make_embedder("fastembed"), FastEmbedEmbedder)
 
 
-def test_make_embedder_jina_is_case_insensitive() -> None:
-    from smritikosh.adapters.embedder.sentence_transformer import (
-        SentenceTransformerEmbedder,
-    )
+def test_make_embedder_fastembed_is_case_insensitive() -> None:
+    from smritikosh.adapters.embedder.fastembed import FastEmbedEmbedder
 
-    for variant in ("Jina", "JINA", "jInA"):
-        assert isinstance(make_embedder(variant), SentenceTransformerEmbedder), variant
+    for variant in ("FastEmbed", "FASTEMBED", "fAsTeMbEd"):
+        assert isinstance(make_embedder(variant), FastEmbedEmbedder), variant
+
+
+# ── make_embedder — voyage / openai (adapters not yet installed) ──────────────
+
+
+def test_make_embedder_voyage_raises_import_error_when_adapter_absent() -> None:
+    with pytest.raises(ImportError, match="Voyage embedder"):
+        make_embedder("voyage")
+
+
+def test_make_embedder_openai_raises_import_error_when_adapter_absent() -> None:
+    with pytest.raises(ImportError, match="OpenAI embedder"):
+        make_embedder("openai")
 
 
 # ── make_embedder — unknown name ──────────────────────────────────────────────

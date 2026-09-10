@@ -96,21 +96,17 @@ def _result(
 # ── _make_embedder ────────────────────────────────────────────────────────────
 
 
-def test_make_embedder_jina_returns_sentence_transformer() -> None:
-    from smritikosh.adapters.embedder.sentence_transformer import (
-        SentenceTransformerEmbedder,
-    )
+def test_make_embedder_fastembed_returns_fast_embed_embedder() -> None:
+    from smritikosh.adapters.embedder.fastembed import FastEmbedEmbedder
 
-    assert isinstance(_make_embedder("jina"), SentenceTransformerEmbedder)
+    assert isinstance(_make_embedder("fastembed"), FastEmbedEmbedder)
 
 
-def test_make_embedder_jina_is_case_insensitive() -> None:
-    from smritikosh.adapters.embedder.sentence_transformer import (
-        SentenceTransformerEmbedder,
-    )
+def test_make_embedder_fastembed_is_case_insensitive() -> None:
+    from smritikosh.adapters.embedder.fastembed import FastEmbedEmbedder
 
-    for variant in ("Jina", "JINA", "jInA"):
-        assert isinstance(_make_embedder(variant), SentenceTransformerEmbedder), variant
+    for variant in ("FastEmbed", "FASTEMBED", "fAsTeMbEd"):
+        assert isinstance(_make_embedder(variant), FastEmbedEmbedder), variant
 
 
 def test_make_embedder_unknown_name_raises_bad_parameter() -> None:

@@ -6,11 +6,9 @@ All symbols are importable directly from ``smritikosh.adapters.embedder``::
 
     from smritikosh.adapters.embedder import make_embedder, EMBEDDER_CHOICES
 
-``SentenceTransformerEmbedder`` is also importable from its own submodule::
+``FastEmbedEmbedder`` is also importable from its own submodule::
 
-    from smritikosh.adapters.embedder.sentence_transformer import (
-        SentenceTransformerEmbedder,
-    )
+    from smritikosh.adapters.embedder.fastembed import FastEmbedEmbedder
 """
 
 from __future__ import annotations
@@ -24,26 +22,49 @@ __all__ = ["EMBEDDER_CHOICES", "make_embedder"]
 
 #: Canonical list of supported embedder names.
 #: Imported by the CLI to build ``click.Choice``; keep in sync with ``make_embedder``.
-EMBEDDER_CHOICES: list[str] = ["jina"]
+EMBEDDER_CHOICES: list[str] = ["fastembed", "voyage", "openai"]
 
 
 def make_embedder(name: str) -> Embedder:
     """Instantiate the :class:`~smritikosh.ports.embedder.Embedder` for *name*.
 
-    *name* is normalised to lowercase so ``"Jina"`` and ``"JINA"`` both work.
+    *name* is normalised to lowercase so ``"FastEmbed"`` and ``"FASTEMBED"``
+    both work.
 
     Raises
     ------
+    ImportError
+        If the requested adapter's optional package is not installed.
     ValueError
         If *name* is not one of :data:`EMBEDDER_CHOICES`.
     """
     name = name.lower()
-    if name == "jina":
-        from smritikosh.adapters.embedder.sentence_transformer import (
-            SentenceTransformerEmbedder,
-        )
+    if name == "fastembed":
+        from smritikosh.adapters.embedder.fastembed import FastEmbedEmbedder
 
-        return SentenceTransformerEmbedder()
+        return FastEmbedEmbedder()
+    if name == "voyage":
+        try:
+            from smritikosh.adapters.embedder.voyage import (
+                VoyageCodeEmbedder,  # type: ignore[import]
+            )
+        except ImportError as exc:
+            raise ImportError(
+                "Voyage embedder is not available. "
+                "Install the smritikosh voyage adapter to continue."
+            ) from exc
+        return VoyageCodeEmbedder()
+    if name == "openai":
+        try:
+            from smritikosh.adapters.embedder.openai import (
+                OpenAIEmbedder,  # type: ignore[import]
+            )
+        except ImportError as exc:
+            raise ImportError(
+                "OpenAI embedder is not available. "
+                "Install the smritikosh openai adapter to continue."
+            ) from exc
+        return OpenAIEmbedder()
     raise ValueError(
         f"Unknown embedder {name!r}. Choose: {', '.join(EMBEDDER_CHOICES)}."
     )

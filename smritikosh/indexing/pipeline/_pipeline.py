@@ -5,9 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 
-from smritikosh.adapters.embedder.sentence_transformer import (
-    SentenceTransformerEmbedder,
-)
+from smritikosh.adapters.embedder.fastembed import FastEmbedEmbedder
 from smritikosh.adapters.file_source.local import LocalFileSource
 from smritikosh.adapters.storage.duckdb import DuckDBAdapter
 from smritikosh.adapters.vector_store.duckdb import DuckDBVectorStore
@@ -123,13 +121,13 @@ def build_index(
     repo_path:
         Root directory of the repository to index.
     embedder:
-        Defaults to SentenceTransformerEmbedder (local, no API key).
+        Defaults to FastEmbedEmbedder (local ONNX, no PyTorch, no API key).
     storage:
         Defaults to DuckDBAdapter writing to ``smritikosh.duckdb``.
     vector_store:
         Defaults to DuckDBVectorStore sharing the storage connection.
     """
-    embedder = embedder or SentenceTransformerEmbedder()
+    embedder = embedder or FastEmbedEmbedder()
     storage  = storage  or DuckDBAdapter(DEFAULT_DB_PATH)
 
     # Share DuckDB connection across vector store and memo cache when available.

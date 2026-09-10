@@ -99,7 +99,7 @@ def main() -> None:
 @click.argument("repo_path", type=click.Path(exists=True, file_okay=False))
 @click.option(
     "--embedder",
-    default="jina",
+    default="fastembed",
     show_default=True,
     type=_EMBEDDER_CHOICES,
     help="Embedding backend.",
@@ -167,7 +167,7 @@ def index(repo_path: str, embedder: str, db_path: str, watch: bool, full: bool) 
 )
 @click.option(
     "--embedder",
-    default="jina",
+    default="fastembed",
     show_default=True,
     type=_EMBEDDER_CHOICES,
     help="Embedding backend (must match what was used at index time).",
