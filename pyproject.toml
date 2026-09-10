@@ -5,7 +5,7 @@ description = "Semantic vector search over a codebase"
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "click>=8.1",
-    "duckdb>=0.10",
+    "duckdb>=1.0",
     # 1.0 renamed the gitignore pattern factory; "gitwildmatch" is deprecated.
     "pathspec>=1.0",
     "sentence-transformers>=6.0",
@@ -15,6 +15,7 @@ dependencies = [
     # is deterministic, offline-safe, and covered by the lock file.
     "tree-sitter-language-pack>=0.13,<1.0",
     "truststore>=0.9",
+    "watchfiles>=0.21",
 ]
 
 [project.scripts]
@@ -70,10 +71,8 @@ markers = ["slow: loads the real embedding model; skip with -m 'not slow'"]
 source = ["smritikosh"]
 
 [tool.coverage.report]
-# Baseline: 75 % (engine, strategies, file selection, and parsing tested;
-# cli/chunker/pipeline stubs not yet implemented).
-# Raise this threshold in the same PR that adds tests for each new module.
-fail_under = 75
+# Raised from 75 % → 90 % alongside cli, storage, and embedder test suites.
+fail_under = 90
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",

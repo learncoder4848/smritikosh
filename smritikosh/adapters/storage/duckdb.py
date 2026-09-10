@@ -163,6 +163,26 @@ class DuckDBAdapter(StorageAdapter):
             self.con.rollback()
             raise
 
+    def clear_caches(self) -> None:
+        """Atomically empty ``memo_cache`` and ``file_hashes`` — forces a full re-index.
+
+        Both tables are cleared in a single transaction so a crash mid-way
+        cannot leave the incremental state partially cleared.
+        Tables that do not exist yet (first run) are silently skipped.
+        """
+        self.con.begin()
+        try:
+            for table in ("memo_cache", "file_hashes"):
+                row = self.con.execute(
+                    "SELECT 1 FROM duckdb_tables() WHERE table_name = ?", [table]
+                ).fetchone()
+                if row:
+                    self.con.execute(f"DELETE FROM {table}")  # noqa: S608
+            self.con.commit()
+        except Exception:
+            self.con.rollback()
+            raise
+
     # ------------------------------------------------------------------ misc
 
     def close(self) -> None:

@@ -233,3 +233,50 @@ def test_delete_file_does_not_touch_other_files(adapter: DuckDBAdapter) -> None:
 
     assert adapter.get_chunk_ids_for_file("keep.py") == {"keep-c"}
     assert adapter.get_file_hash("keep.py") == "h"
+
+
+# ── clear_caches ─────────────────────────────────────────────────────────────
+
+
+def test_clear_caches_empties_file_hashes(adapter: DuckDBAdapter) -> None:
+    """file_hashes rows are deleted; memo_cache absent on first run is skipped."""
+    adapter.set_file_hash("a.py", "h1")
+    adapter.set_file_hash("b.py", "h2")
+
+    adapter.clear_caches()
+
+    assert adapter.get_all_file_paths() == set()
+
+
+def test_clear_caches_empties_memo_cache_when_present(adapter: DuckDBAdapter) -> None:
+    """Both tables are cleared when memo_cache exists (i.e. after a prior index run)."""
+    adapter.set_file_hash("a.py", "h1")
+    adapter.con.execute(
+        "CREATE TABLE IF NOT EXISTS memo_cache ("
+        "  component_path TEXT, cache_key TEXT, result BLOB,"
+        "  created_at TIMESTAMP DEFAULT now(),"
+        "  PRIMARY KEY (component_path, cache_key)"
+        ")"
+    )
+    adapter.con.execute("INSERT INTO memo_cache VALUES ('p', 'k', NULL, now())")
+
+    adapter.clear_caches()
+
+    assert adapter.get_all_file_paths() == set()
+    assert adapter.con.execute("SELECT COUNT(*) FROM memo_cache").fetchone()[0] == 0
+
+
+def test_clear_caches_is_noop_on_empty_tables(adapter: DuckDBAdapter) -> None:
+    """No error when tables exist but are already empty."""
+    adapter.clear_caches()  # must not raise
+
+
+def test_clear_caches_does_not_touch_nodes_table(adapter: DuckDBAdapter) -> None:
+    """Chunk/file nodes are preserved; only the incremental caches are wiped."""
+    adapter.upsert_chunk_nodes([_chunk("c1")])      # default path: "a/b.py"
+    adapter.set_file_hash("a/b.py", "h1")
+
+    adapter.clear_caches()
+
+    assert adapter.get_chunk_ids_for_file("a/b.py") == {"c1"}  # nodes untouched
+    assert adapter.get_all_file_paths() == set()                # hashes cleared
