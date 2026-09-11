@@ -8,9 +8,9 @@ from typing import Final, Literal
 from smritikosh.engine import sm
 from smritikosh.indexing.strategies._helpers import (
     TreeSitterNode,
-    make_group_chunk,
-    make_node_chunk,
-    make_text_chunk,
+    make_group_chunks,
+    make_node_chunks,
+    make_text_chunks,
 )
 from smritikosh.models import Capture, Chunk, ParsedFile
 
@@ -86,12 +86,17 @@ def _apply_grouping(
     parsed: ParsedFile,
     captures: list[Capture],
     grouping: dict[str, Action],
+    max_chars: int | None = None,
 ) -> list[Chunk]:
     """Dispatch captures to group/whole/with_init/own/skip actions.
 
     *captures* must already be deduplicated (one per node.id) — call
     _deduplicate_by_priority first. Passing raw captures can produce duplicate
     chunks for nodes that match multiple capture names.
+
+    *max_chars* caps a chunk at what the embedder will actually read; a larger
+    capture is split into overlapping line windows instead of being embedded
+    from its prefix alone.  ``None`` disables splitting.
     """
     chunks: list[Chunk] = []
     skip: set[int] = set()
@@ -112,7 +117,7 @@ def _apply_grouping(
 
         elif action in ("whole", "own"):
             kind = cap.capture_name.split(".")[-1]
-            chunks.append(make_node_chunk(parsed, cap.node, kind, raw))
+            chunks.extend(make_node_chunks(parsed, cap.node, kind, raw, max_chars))
             skip.add(cap.node.id)
 
         elif action == "with_init":
@@ -127,23 +132,38 @@ def _apply_grouping(
                     min(cap.node.start_point[0], init_cap.node.start_point[0]) + 1
                 )
                 end_line = max(cap.node.end_point[0], init_cap.node.end_point[0]) + 1
-                chunks.append(make_text_chunk(parsed, text, kind, start_line, end_line))
+                chunks.extend(
+                    make_text_chunks(
+                        parsed, text, kind, start_line, end_line, max_chars
+                    )
+                )
             else:
-                chunks.append(make_node_chunk(parsed, cap.node, kind, raw))
+                chunks.extend(make_node_chunks(parsed, cap.node, kind, raw, max_chars))
             skip.add(cap.node.id)
 
     for capture_name, nodes in group_buckets.items():
-        chunks.append(make_group_chunk(parsed, nodes, capture_name.split(".")[-1], raw))
+        chunks.extend(
+            make_group_chunks(
+                parsed, nodes, capture_name.split(".")[-1], raw, max_chars
+            )
+        )
 
     return chunks
 
 
 class AstChunkingStrategy:
-    """Chunk code files using tree-sitter AST captures."""
+    """Chunk code files using tree-sitter AST captures.
+
+    *max_chars* caps each chunk at what the embedder will actually encode.
+    ``None`` keeps the previous behaviour of one chunk per capture at any size.
+    """
 
     mode_name = "ast"
+
+    def __init__(self, max_chars: int | None = None) -> None:
+        self.max_chars = max_chars
 
     @sm.tracked
     def chunk(self, parsed: ParsedFile, captures: list[Capture]) -> list[Chunk]:
         deduped = _deduplicate_by_priority(captures, CAPTURE_PRIORITY)
-        return _apply_grouping(parsed, deduped, CHUNK_GROUPING)
+        return _apply_grouping(parsed, deduped, CHUNK_GROUPING, self.max_chars)

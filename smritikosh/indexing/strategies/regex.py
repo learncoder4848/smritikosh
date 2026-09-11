@@ -5,19 +5,24 @@ from __future__ import annotations
 import re
 
 from smritikosh.engine import sm
-from smritikosh.indexing.strategies._helpers import make_text_chunk
+from smritikosh.indexing.strategies._helpers import make_text_chunks
 from smritikosh.models import Capture, Chunk, ParsedFile
 
 __all__ = ["RegexChunkingStrategy"]
 
 
 class RegexChunkingStrategy:
-    """Split content at regex pattern boundaries; whole-file fallback."""
+    """Split content at regex pattern boundaries; whole-file fallback.
+
+    *max_chars* additionally caps each section at what the embedder reads, so
+    a config with one enormous table does not lose its tail.
+    """
 
     mode_name = "regex"
 
-    def __init__(self, split_pattern: str) -> None:
+    def __init__(self, split_pattern: str, max_chars: int | None = None) -> None:
         self._pattern = re.compile(split_pattern, re.MULTILINE)
+        self.max_chars = max_chars
 
     @sm.tracked
     def chunk(self, parsed: ParsedFile, captures: list[Capture]) -> list[Chunk]:  # noqa: ARG002
@@ -26,7 +31,9 @@ class RegexChunkingStrategy:
 
         if not matches:
             lines = content.splitlines()
-            return [make_text_chunk(parsed, content, "regex", 1, max(len(lines), 1))]
+            return make_text_chunks(
+                parsed, content, "regex", 1, max(len(lines), 1), self.max_chars
+            )
 
         chunks: list[Chunk] = []
         boundaries = [m.start() for m in matches] + [len(content)]
@@ -38,8 +45,10 @@ class RegexChunkingStrategy:
                 continue
             start_line = content[:start_pos].count("\n") + 1
             end_line = max(content[:end_pos].count("\n"), start_line)
-            chunks.append(
-                make_text_chunk(parsed, section, "regex", start_line, end_line)
+            chunks.extend(
+                make_text_chunks(
+                    parsed, section, "regex", start_line, end_line, self.max_chars
+                )
             )
 
         return chunks

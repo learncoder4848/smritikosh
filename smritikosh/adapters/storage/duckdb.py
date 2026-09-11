@@ -60,6 +60,14 @@ class DuckDBAdapter(StorageAdapter):
     # ------------------------------------------------------------------ nodes
 
     def upsert_file_node(self, source: SourceFile) -> None:
+        """Insert or update the ``file`` node for *source*.
+
+        Keyed by path, not by content hash.  Two files with identical bytes are
+        still two files: hashing the content made them share a primary key, so
+        ``INSERT OR REPLACE`` silently collapsed them into one row — a repo with
+        24 empty ``__init__.py`` files kept exactly one of them.  The content
+        hash is still recorded in the metadata, which is where it is read from.
+        """
         content_hash = hashlib.sha256(source.content.encode()).hexdigest()
         metadata = json.dumps(
             {"language": source.language, "content_hash": content_hash}
@@ -69,7 +77,7 @@ class DuckDBAdapter(StorageAdapter):
             INSERT OR REPLACE INTO nodes (id, kind, name, path, metadata)
             VALUES (?, 'file', ?, ?, ?)
             """,
-            [content_hash, source.path, source.path, metadata],
+            [f"file:{source.path}", source.path, source.path, metadata],
         )
 
     def upsert_chunk_nodes(self, chunks: list[Chunk]) -> None:

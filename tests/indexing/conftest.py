@@ -63,14 +63,22 @@ def node_for(content: str, text: str, node_id: int | None = None) -> FakeNode:
     return n
 
 
-def parsed(content: str, path: str = "test.py") -> ParsedFile:
+def parsed(
+    content: str, path: str = "test.py", language: str = "python"
+) -> ParsedFile:
     """Return a ParsedFile wrapping *content*."""
-    return ParsedFile(path=path, language="python", content=content, tree=None)
+    return ParsedFile(path=path, language=language, content=content, tree=None)
 
 
-def cap(name: str, node: FakeNode, path: str = "test.py") -> Capture:
-    """Return a Capture for *node* with the given capture *name*."""
-    return Capture(capture_name=name, node=node, name="", path=path)
+def cap(
+    name: str, node: FakeNode, path: str = "test.py", key: str = ""
+) -> Capture:
+    """Return a Capture for *node* with the given capture *name*.
+
+    *key* populates ``Capture.name`` — the captured symbol/key text, which the
+    JSON path builder reads.
+    """
+    return Capture(capture_name=name, node=node, name=key, path=path)
 
 
 def cid(text: str) -> str:

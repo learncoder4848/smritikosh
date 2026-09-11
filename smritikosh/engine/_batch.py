@@ -45,9 +45,28 @@ class BatchGatherer:
         Must return exactly one result per input item, in the same order.
     max_size:
         Maximum items accumulated before the batch fires immediately.
+
+    Inference serialisation
+    -----------------------
+    A process-wide semaphore (``_INFERENCE_SEM``) ensures **at most one**
+    ``_fire`` call — and therefore at most one ONNX / ML inference session —
+    is active at any moment.  This prevents multiple concurrent ONNX threads
+    from OOM-killing the process on memory-constrained machines, regardless
+    of how many files are being processed in parallel above.
     """
 
     _WINDOW_SECS: float = 0.001  # 1 ms collection window
+
+    # Process-wide inference semaphore.  Lazily created so it binds to the
+    # running event loop on first use.  Class-level so it is shared across
+    # all BatchGatherer instances (all embedding calls share one device).
+    _inference_sem: asyncio.Semaphore | None = None
+
+    @classmethod
+    def _get_inference_sem(cls) -> asyncio.Semaphore:
+        if cls._inference_sem is None:
+            cls._inference_sem = asyncio.Semaphore(1)
+        return cls._inference_sem
 
     def __init__(self, batch_fn: Callable[..., Any], max_size: int) -> None:
         self._batch_fn = batch_fn
@@ -114,10 +133,11 @@ class BatchGatherer:
         Handles :class:`RetryWithSmallerBatch` by splitting and recursing.
         """
         try:
-            if inspect.iscoroutinefunction(self._batch_fn):
-                results: list[Any] = await self._batch_fn(items)
-            else:
-                results = await asyncio.to_thread(self._batch_fn, items)
+            async with self._get_inference_sem():
+                if inspect.iscoroutinefunction(self._batch_fn):
+                    results: list[Any] = await self._batch_fn(items)
+                else:
+                    results = await asyncio.to_thread(self._batch_fn, items)
 
             for fut, res in zip(futures, results, strict=True):
                 if not fut.done():

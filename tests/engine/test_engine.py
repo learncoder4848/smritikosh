@@ -125,3 +125,57 @@ async def test_fan_out_each_item_isolated_path(memo_store):
         await sm.fan_out(process, files)
 
     assert call_log == {"a.py": 1, "b.py": 1}  # each file processed once
+
+
+async def test_fan_out_concurrency_limits_simultaneous_tasks():
+    """At most *concurrency* items run at the same time."""
+    peak = 0
+    active = 0
+
+    @sm.tracked
+    async def task(f: FakeFile) -> None:
+        nonlocal peak, active
+        active += 1
+        peak = max(peak, active)
+        await asyncio.sleep(0.01)   # yield so others can start
+        active -= 1
+
+    files = [FakeFile(f"{i}.py") for i in range(10)]
+    with PipelineContext():
+        await sm.fan_out(task, files, concurrency=3)
+
+    assert peak <= 3
+
+
+async def test_fan_out_concurrency_one_serialises_execution():
+    """concurrency=1 means each item finishes before the next starts."""
+    order: list[int] = []
+
+    @sm.tracked
+    async def task(f: FakeFile) -> None:
+        idx = int(f.path.replace(".py", ""))
+        await asyncio.sleep(0)      # yield to event loop
+        order.append(idx)
+
+    files = [FakeFile(f"{i}.py") for i in range(5)]
+    with PipelineContext():
+        await sm.fan_out(task, files, concurrency=1)
+
+    # With concurrency=1 tasks are serialised — order must be sequential.
+    assert order == list(range(5))
+
+
+async def test_fan_out_default_concurrency_is_at_least_one():
+    """Auto-detected concurrency must always be ≥ 1 (even on unusual hosts)."""
+    results: list[str] = []
+
+    @sm.tracked
+    async def collect(f: FakeFile) -> None:
+        results.append(f.path)
+
+    files = [FakeFile("a.py"), FakeFile("b.py")]
+    with PipelineContext():
+        # No concurrency= arg — auto-detect must produce a valid semaphore.
+        await sm.fan_out(collect, files)
+
+    assert sorted(results) == ["a.py", "b.py"]

@@ -5,9 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from smritikosh.adapters.embedder.sentence_transformer import (
-    SentenceTransformerEmbedder,
-)
+from smritikosh.adapters.embedder.fastembed import FastEmbedEmbedder
 from smritikosh.adapters.file_source.local import LocalFileSource
 from smritikosh.adapters.vector_store.duckdb import DuckDBVectorStore
 from smritikosh.indexing.discovery import iter_source_files
@@ -47,16 +45,16 @@ def chunk_id_for(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()[:16]
 
 
-# Module-scoped: loading the model costs seconds and ~3GB, so do it once.
+# Module-scoped: model download (~640 MB) is a one-time cost, so do it once.
 @pytest.fixture(scope="module")
-def embedder() -> SentenceTransformerEmbedder:
-    return SentenceTransformerEmbedder()
+def embedder() -> FastEmbedEmbedder:
+    return FastEmbedEmbedder()
 
 
 @pytest.fixture(scope="module")
 def store(
     tmp_path_factory: pytest.TempPathFactory,
-    embedder: SentenceTransformerEmbedder,
+    embedder: FastEmbedEmbedder,
 ) -> DuckDBVectorStore:
     db_path: Path = tmp_path_factory.mktemp("index") / "smritikosh.duckdb"
     store = DuckDBVectorStore(str(db_path))
@@ -71,7 +69,7 @@ def store(
 
 def test_should_retrieve_the_csv_snippet_when_asked_about_csv_files(
     store: DuckDBVectorStore,
-    embedder: SentenceTransformerEmbedder,
+    embedder: FastEmbedEmbedder,
 ) -> None:
     query = embedder.encode_queries(["how do I read rows out of a CSV file"])[0]
 
@@ -82,7 +80,7 @@ def test_should_retrieve_the_csv_snippet_when_asked_about_csv_files(
 
 def test_should_not_duplicate_rows_when_a_chunk_is_reindexed(
     store: DuckDBVectorStore,
-    embedder: SentenceTransformerEmbedder,
+    embedder: FastEmbedEmbedder,
 ) -> None:
     query = embedder.encode_queries(["anything at all"])[0]
     store.upsert(chunk_id_for(CSV_SNIPPET), embedder.encode_documents([CSV_SNIPPET])[0])

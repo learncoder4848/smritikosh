@@ -15,6 +15,7 @@ from smritikosh.indexing.pipeline._pipeline import (
     EMBEDDER,
     STORAGE,
     VECTOR_STORE,
+    _embed_one,
     build_index,
     process_chunk,
     process_file,
@@ -94,6 +95,70 @@ def _make_source(
         path=path, language="python", content=content,
         has_tags_scm=False, strategy=SectionChunkingStrategy(),
     )
+
+
+# ── _embed_one length-sorted sub-batching ─────────────────────────────────────
+
+
+class _EchoEmbedder(Embedder):
+    """Returns a vector encoding each text's length, so order is checkable."""
+
+    dims = 1
+    model_id = "echo:1"
+
+    def __init__(self) -> None:
+        self.groups: list[list[str]] = []
+
+    def encode_documents(self, texts: list[str]) -> list[list[float]]:
+        self.groups.append(list(texts))
+        return [[float(len(t))] for t in texts]
+
+    def encode_queries(self, texts: list[str]) -> list[list[float]]:
+        return self.encode_documents(texts)
+
+
+async def test_embed_one_returns_vectors_in_caller_order() -> None:
+    """Sorting by length must not permute results.
+
+    The batcher matches results to futures positionally, so a reordering bug
+    would silently attach every vector to the wrong chunk.
+    """
+    embedder = _EchoEmbedder()
+    # Deliberately unsorted lengths spanning more than one sub-batch.
+    texts = ["x" * n for n in (50, 3, 900, 12, 7, 400, 1, 65, 30, 8, 200, 2)]
+
+    with PipelineContext() as ctx:
+        ctx.provide(EMBEDDER, embedder)
+        vectors = [await _embed_one(t) for t in texts]
+
+    assert [v[0] for v in vectors] == [float(len(t)) for t in texts]
+
+
+async def test_embed_one_groups_similar_lengths_together() -> None:
+    """Tiny and huge chunks must not share a forward pass.
+
+    Padding is to the longest member of a batch, so mixing a 1-char chunk with
+    a 900-char one is exactly the waste the sort exists to remove.  Needs more
+    than _SUB_BATCH items, otherwise there is only one group to inspect.
+    """
+    import asyncio
+
+    embedder = _EchoEmbedder()
+    tiny = list(range(1, 9))             # 1..8 chars
+    huge = list(range(901, 909))         # 901..908 chars
+    texts = ["x" * n for n in (tiny + huge)]
+
+    with PipelineContext() as ctx:
+        ctx.provide(EMBEDDER, embedder)
+        await asyncio.gather(*(_embed_one(t) for t in texts))
+
+    multi = [g for g in embedder.groups if len(g) > 1]
+    assert multi, "expected at least one multi-item forward pass"
+    for group in multi:
+        lengths = [len(t) for t in group]
+        assert max(lengths) / min(lengths) < 100, (
+            f"group mixes wildly different lengths: {sorted(lengths)}"
+        )
 
 
 # ── ContextKeys ───────────────────────────────────────────────────────────────
