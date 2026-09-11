@@ -22,6 +22,7 @@ from smritikosh.engine import (
 from smritikosh.indexing.discovery import iter_source_files
 from smritikosh.indexing.pipeline._router import _build_router
 from smritikosh.indexing.pipeline._stages import _chunk, _extract, _parse
+from smritikosh.indexing.strategies._helpers import budget_chars
 from smritikosh.models import Chunk, SourceFile
 from smritikosh.ports.embedder import Embedder
 from smritikosh.ports.storage import StorageAdapter
@@ -120,8 +121,12 @@ async def _run_pipeline(
 ) -> None:
     """Discover files, clean up deleted ones, fan out process_file."""
     storage     = use_context(STORAGE)
+    embedder    = use_context(EMBEDDER)
     file_source = LocalFileSource(repo_path)
-    files       = list(iter_source_files(file_source, _build_router()))
+    # Chunks are capped at what this model actually encodes — an over-long
+    # chunk would be stored whole but embedded from its prefix only.
+    max_chars   = budget_chars(embedder.max_tokens)
+    files       = list(iter_source_files(file_source, _build_router(max_chars)))
 
     stored_paths  = set(storage.get_all_file_paths())
     current_paths = {f.path for f in files}

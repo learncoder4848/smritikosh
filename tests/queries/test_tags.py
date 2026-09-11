@@ -278,11 +278,39 @@ JSON = """
 """
 
 
-def test_should_capture_only_top_level_json_keys() -> None:
+def test_should_capture_json_keys_at_three_depths() -> None:
+    """The query offers depth; the strategy decides how much of it to use.
+
+    Nested keys are captured under their own capture names so
+    SectionChunkingStrategy can descend into an oversized section.  Keeping a
+    small config flat is the *strategy's* job (it stops at the first depth that
+    fits the budget), not the query's — see test_section_strategy.
+    """
     lang = get_language("json")
     root = Parser(lang).parse(JSON.encode("utf-8")).root_node
     captures = QueryCursor(Query(lang, _query_text("json"))).captures(root)
 
     names = {node.text.decode() for node in captures["name"]}
 
-    assert names == {"name", "nested"}
+    assert names == {"name", "nested", "inner"}
+    assert {n.text.decode() for n in captures["definition.section"]} == {
+        '"name": "demo"',
+        '"nested": {"inner": 1}',
+    }
+    assert {n.text.decode() for n in captures["definition.subsection"]} == {
+        '"inner": 1'
+    }
+
+
+def test_should_anchor_the_json_capture_on_the_pair_not_the_key() -> None:
+    """The value has to travel with the key or the chunk carries no content.
+
+    Documented in the .scm comment but untested until now.
+    """
+    lang = get_language("json")
+    root = Parser(lang).parse(JSON.encode("utf-8")).root_node
+    captures = QueryCursor(Query(lang, _query_text("json"))).captures(root)
+
+    texts = [node.text.decode() for node in captures["definition.section"]]
+
+    assert all(":" in text for text in texts)

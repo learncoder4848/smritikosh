@@ -10,9 +10,9 @@ from smritikosh.indexing.strategies._helpers import (
     build_chunk,
     chunk_id,
     content_hash,
-    make_group_chunk,
-    make_node_chunk,
-    make_text_chunk,
+    make_group_chunks,
+    make_node_chunks,
+    make_text_chunks,
 )
 from smritikosh.indexing.strategies.ast import (
     CHUNK_GROUPING,
@@ -99,9 +99,9 @@ def test_should_make_node_group_and_text_chunks_via_build_chunk() -> None:
     n1 = node_for(content, "X = 1")
     n2 = node_for(content, "Y = 2")
 
-    node_chunk = make_node_chunk(p, n1, "constant")
-    group_chunk = make_group_chunk(p, [n1, n2], "constant")
-    text_chunk = make_text_chunk(p, "hello", "regex", 1, 1)
+    (node_chunk,) = make_node_chunks(p, n1, "constant")
+    (group_chunk,) = make_group_chunks(p, [n1, n2], "constant")
+    (text_chunk,) = make_text_chunks(p, "hello", "regex", 1, 1)
 
     assert node_chunk.id == cid("X = 1")
     assert group_chunk.id == cid("X = 1\nY = 2")

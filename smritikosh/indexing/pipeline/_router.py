@@ -16,15 +16,17 @@ from smritikosh.indexing.strategies import (
 
 
 @functools.cache
-def _build_router() -> FileRouter:
+def _build_router(max_chars: int | None = None) -> FileRouter:
     """Return a FileRouter pre-configured for all supported file types.
 
-    Cached: strategies and router are constructed once per process and
-    reused across every _run_pipeline call (e.g. in --watch mode).
+    Cached on *max_chars*: strategies and router are constructed once per
+    process per chunk budget and reused across every _run_pipeline call (e.g.
+    in --watch mode).  *max_chars* caps a chunk at what the embedder will
+    actually encode; ``None`` leaves chunks uncapped.
     """
-    ast      = AstChunkingStrategy()
-    sections = SectionChunkingStrategy()
-    toml     = RegexChunkingStrategy(r"^\[+[^\]]+\]")
+    ast      = AstChunkingStrategy(max_chars)
+    sections = SectionChunkingStrategy(max_chars)
+    toml     = RegexChunkingStrategy(r"^\[+[^\]]+\]", max_chars)
 
     router = FileRouter(json_exclude_filter=JsonExcludeFilter())
     router.register_extension(".py",   "python",     ast)
