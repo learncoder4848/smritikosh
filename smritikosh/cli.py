@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import TYPE_CHECKING
 
 import click
 
-from smritikosh.adapters.embedder import EMBEDDER_CHOICES
 from smritikosh.constants import DEFAULT_DB_PATH
 
 if TYPE_CHECKING:
@@ -20,21 +20,12 @@ if TYPE_CHECKING:
 
 # ── Embedder factory ──────────────────────────────────────────────────────────
 
-_EMBEDDER_CHOICES = click.Choice(EMBEDDER_CHOICES, case_sensitive=False)
 
-
-def _make_embedder(name: str) -> Embedder:
-    """Thin Click wrapper around :func:`smritikosh.adapters.embedder.make_embedder`.
-
-    Converts ``ValueError`` (unknown name) into :class:`click.BadParameter`
-    so it renders as a clean CLI error message.
-    """
+def _make_embedder() -> Embedder:
+    """Thin Click wrapper around :func:`smritikosh.adapters.embedder.make_embedder`."""
     from smritikosh.adapters.embedder import make_embedder
 
-    try:
-        return make_embedder(name)
-    except ValueError as exc:
-        raise click.BadParameter(str(exc), param_hint="--embedder") from exc
+    return make_embedder()
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -98,13 +89,6 @@ def main() -> None:
 @main.command()
 @click.argument("repo_path", type=click.Path(exists=True, file_okay=False))
 @click.option(
-    "--embedder",
-    default="jina",
-    show_default=True,
-    type=_EMBEDDER_CHOICES,
-    help="Embedding backend.",
-)
-@click.option(
     "--db-path",
     default=DEFAULT_DB_PATH,
     show_default=True,
@@ -122,20 +106,44 @@ def main() -> None:
     is_flag=True,
     help="Force a full rebuild (clears memo_cache + file_hashes).",
 )
-def index(repo_path: str, embedder: str, db_path: str, watch: bool, full: bool) -> None:
+def index(
+    repo_path: str,
+    db_path: str,
+    watch: bool,
+    full: bool,
+) -> None:
     """Build or incrementally update the vector index for REPO_PATH."""
-    from smritikosh.indexing.pipeline import build_index
+    from smritikosh.indexing.pipeline import build_index, count_source_files
 
-    emb = _make_embedder(embedder)
+    emb = _make_embedder()
     storage, vector_store = _open_stores(db_path)
     try:
         if full:
             storage.clear_caches()
             click.echo("Cleared incremental caches — full rebuild forced.")
 
-        click.echo(f"Indexing {repo_path!r} …")
-        build_index(repo_path, emb, storage, vector_store)
-        click.echo("Done.")
+        n_files = count_source_files(repo_path)
+        click.echo(f"Indexing {repo_path!r} — {n_files} source file(s) …")
+
+        t0 = time.perf_counter()
+        with click.progressbar(
+            length=n_files,
+            show_eta=True,
+            show_percent=True,
+            bar_template="  %(bar)s  %(info)s",
+            fill_char="█",
+            empty_char="░",
+        ) as bar:
+            def _on_file(path: str) -> None:  # noqa: E306
+                bar.update(1)
+
+            build_index(
+                repo_path, emb, storage, vector_store,
+                on_file_indexed=_on_file,
+            )
+
+        elapsed = time.perf_counter() - t0
+        click.echo(f"Done in {elapsed:.1f}s.")
 
         if watch:
             click.echo(f"Watching {repo_path!r} for changes (Ctrl-C to stop) …")
@@ -165,41 +173,43 @@ def index(repo_path: str, embedder: str, db_path: str, watch: bool, full: bool) 
     type=click.Path(),
     help="DuckDB database file.",
 )
-@click.option(
-    "--embedder",
-    default="jina",
-    show_default=True,
-    type=_EMBEDDER_CHOICES,
-    help="Embedding backend (must match what was used at index time).",
-)
-def search(query: str, top_k: int, db_path: str, embedder: str) -> None:
+def search(
+    query: str,
+    top_k: int,
+    db_path: str,
+) -> None:
     """Run a semantic search QUERY against the built vector index."""
     from smritikosh.indexing.vector_index import VectorIndex
 
     storage, vector_store = _open_stores(db_path)
     results = []  # populated inside try; display happens after storage is closed
+    t0 = time.perf_counter()
     try:
         if vector_store.get_stored_dims() is None:
             raise click.ClickException(
                 f"No index found at {db_path!r}. "
                 "Run `smritikosh index <repo_path>` first."
             )
-        emb = _make_embedder(embedder)
+        emb = _make_embedder()
         idx = VectorIndex(vector_store, storage, emb)
         results = asyncio.run(idx.search(query, top_k))
     finally:
         storage.close()
 
+    elapsed_ms = (time.perf_counter() - t0) * 1000
+
     if not results:
-        click.echo("No results found.")
+        click.echo(f"No results found.  ({elapsed_ms:.0f} ms)")
         return
 
+    click.echo(f"Found {len(results)} result(s) in {elapsed_ms:.0f} ms:\n")
     for r in results:
         line_range = f"{r.start_line}-{r.end_line}"
         kind_str = f"  [{r.chunk_kind}]" if r.chunk_kind else ""
-        click.echo(f"\n{r.path}:{line_range}  score={r.score:.3f}{kind_str}")
+        click.echo(f"{r.path}:{line_range}  score={r.score:.3f}{kind_str}")
         for line in (r.snippet or "").splitlines():
             click.echo(f"    {line}")
+        click.echo()
 
 
 if __name__ == "__main__":

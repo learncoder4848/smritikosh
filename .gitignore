@@ -8,3 +8,7 @@ htmlcov/
 build/
 dist/
 plan/
+# Built indexes: large binaries, regenerable from source.
+# .wal is DuckDB's write-ahead log, left behind if a write is interrupted.
+*.duckdb
+*.duckdb.wal

@@ -2,7 +2,7 @@
 
 Coverage map
 ────────────
-_make_embedder          – embedder selection, case folding, bad-name guard
+_make_embedder          – constructs FastEmbedEmbedder with CodeRankEmbed
 _open_stores            – correct types, shared DuckDB connection
 index command           – happy path, --full ordering, --db-path passthrough,
                           --watch output, storage.close() in success + error paths
@@ -96,28 +96,15 @@ def _result(
 # ── _make_embedder ────────────────────────────────────────────────────────────
 
 
-def test_make_embedder_jina_returns_sentence_transformer() -> None:
-    from smritikosh.adapters.embedder.sentence_transformer import (
-        SentenceTransformerEmbedder,
-    )
+def test_make_embedder_uses_coderankembed() -> None:
+    from smritikosh.adapters.embedder.fastembed import FastEmbedEmbedder
+    from smritikosh.constants import DEFAULT_MODEL
 
-    assert isinstance(_make_embedder("jina"), SentenceTransformerEmbedder)
+    emb = _make_embedder()
 
-
-def test_make_embedder_jina_is_case_insensitive() -> None:
-    from smritikosh.adapters.embedder.sentence_transformer import (
-        SentenceTransformerEmbedder,
-    )
-
-    for variant in ("Jina", "JINA", "jInA"):
-        assert isinstance(_make_embedder(variant), SentenceTransformerEmbedder), variant
-
-
-def test_make_embedder_unknown_name_raises_bad_parameter() -> None:
-    import click
-
-    with pytest.raises(click.BadParameter):
-        _make_embedder("bert")
+    assert isinstance(emb, FastEmbedEmbedder)
+    assert emb._model_name == DEFAULT_MODEL
+    assert emb._model_name == "nomic-ai/CodeRankEmbed"
 
 
 # ── _open_stores ──────────────────────────────────────────────────────────────
@@ -158,7 +145,7 @@ def test_index_exits_zero_and_prints_done(runner, repo, db_path) -> None:
         result = runner.invoke(main, ["index", repo, "--db-path", db_path])
 
     assert result.exit_code == 0
-    assert "Done." in result.output
+    assert "Done in" in result.output
 
 
 def test_index_full_clears_caches_before_build(runner, repo, db_path) -> None:
@@ -172,7 +159,7 @@ def test_index_full_clears_caches_before_build(runner, repo, db_path) -> None:
         patch("smritikosh.cli._open_stores", return_value=(storage, vector_store)),
         patch(
             "smritikosh.indexing.pipeline.build_index",
-            side_effect=lambda *_: call_order.append("build"),
+                side_effect=lambda *_, **__: call_order.append("build"),
         ),
     ):
         result = runner.invoke(main, ["index", repo, "--db-path", db_path, "--full"])
@@ -240,15 +227,6 @@ def test_index_storage_closed_when_build_raises(runner, repo, db_path) -> None:
         runner.invoke(main, ["index", repo, "--db-path", db_path])
 
     storage.close.assert_called_once()
-
-
-def test_index_rejects_invalid_embedder_name(runner, repo, db_path) -> None:
-    result = runner.invoke(
-        main, ["index", repo, "--embedder", "bert", "--db-path", db_path]
-    )
-
-    assert result.exit_code == 2
-    assert "Invalid value" in result.output
 
 
 def test_index_watch_flag_prints_watching_message(runner, repo, db_path) -> None:
@@ -394,12 +372,3 @@ def test_search_omits_chunk_kind_brackets_when_kind_is_none(runner, db_path) -> 
 
     score_line = next(line for line in result.output.splitlines() if "score=" in line)
     assert "[" not in score_line
-
-
-def test_search_rejects_invalid_embedder_name(runner, db_path) -> None:
-    result = runner.invoke(
-        main, ["search", "q", "--embedder", "bert", "--db-path", db_path]
-    )
-
-    assert result.exit_code == 2
-    assert "Invalid value" in result.output

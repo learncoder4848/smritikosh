@@ -78,6 +78,46 @@ def test_upsert_file_node_is_idempotent(adapter: DuckDBAdapter) -> None:
     assert count == 1
 
 
+def test_files_with_identical_content_get_separate_nodes(
+    adapter: DuckDBAdapter,
+) -> None:
+    """Regression: nodes were keyed by content hash, so twins overwrote.
+
+    A repo full of empty ``__init__.py`` files kept exactly one node between
+    them, and the three copies of an agent doc under .agents/.claude/.cursor
+    collapsed to one.
+    """
+    same = "# shared\n"
+    for path in ("a/__init__.py", "b/__init__.py", "c/__init__.py"):
+        adapter.upsert_file_node(_source(path=path, content=same))
+
+    paths = {
+        row[0]
+        for row in adapter.con.execute(
+            "SELECT path FROM nodes WHERE kind = 'file'"
+        ).fetchall()
+    }
+    assert paths == {"a/__init__.py", "b/__init__.py", "c/__init__.py"}
+
+
+def test_deleting_one_of_two_identical_files_keeps_the_other(
+    adapter: DuckDBAdapter,
+) -> None:
+    same = "# shared\n"
+    adapter.upsert_file_node(_source(path="keep.py", content=same))
+    adapter.upsert_file_node(_source(path="drop.py", content=same))
+
+    adapter.delete_file("drop.py")
+
+    paths = {
+        row[0]
+        for row in adapter.con.execute(
+            "SELECT path FROM nodes WHERE kind = 'file'"
+        ).fetchall()
+    }
+    assert paths == {"keep.py"}
+
+
 # ── upsert_chunk_nodes ──────────────────────────────────────────────────────
 
 

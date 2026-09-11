@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 from collections.abc import Callable
 from typing import Any
 
@@ -70,7 +71,14 @@ class IncrementalEngine:
         """
         return list(await asyncio.gather(*[fn(item) for item in items]))
 
-    async def fan_out(self, fn: Callable[..., Any], items: list[Any]) -> None:
+    async def fan_out(
+        self,
+        fn: Callable[..., Any],
+        items: list[Any],
+        *,
+        concurrency: int | None = None,
+        item_done: Callable[[Any], None] | None = None,
+    ) -> None:
         """Run ``fn`` concurrently over *items*, each in its **own** component path.
 
         Component path is ``"{fn.__name__}/{item.path}"`` when *item* has a
@@ -78,12 +86,33 @@ class IncrementalEngine:
 
         This creates stable memo boundaries so that each file's cache entries
         are stored and invalidated independently.
+
+        Parameters
+        ----------
+        concurrency:
+            Maximum number of items processed at the same time.  ``None``
+            (default) auto-selects ``min(os.cpu_count() or 2, 4)``.
+            Lower this on memory-constrained machines.
+        item_done:
+            Optional callback fired after each item completes (including
+            cache hits).  Receives the raw item object.
         """
+        # Cap at 4 by default: ONNX models can be several hundred MB each;
+        # more than 4 concurrent _fire tasks risks OOM on typical dev machines.
+        # Pass an explicit concurrency= value to go higher on large servers.
+        limit = concurrency or min(os.cpu_count() or 2, 4)
+        sem = asyncio.Semaphore(limit)
 
         async def _run_one(item: Any) -> Any:
             item_key: str = getattr(item, "path", str(item))
-            async with _component_context(f"{fn.__name__}/{item_key}"):
-                return await fn(item)
+            async with sem:
+                async with _component_context(f"{fn.__name__}/{item_key}"):
+                    result = await fn(item)
+            # Fire outside the semaphore — progress update is cheap and
+            # shouldn't block the next item from starting.
+            if item_done is not None:
+                item_done(item)
+            return result
 
         await asyncio.gather(*[_run_one(item) for item in items])
 

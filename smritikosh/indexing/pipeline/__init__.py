@@ -25,6 +25,7 @@ from smritikosh.indexing.pipeline._pipeline import (
     STORAGE,
     VECTOR_STORE,
     build_index,
+    count_source_files,
     process_chunk,
     process_file,
 )
@@ -34,6 +35,7 @@ __all__ = [
     "STORAGE",
     "VECTOR_STORE",
     "build_index",
+    "count_source_files",
     "process_chunk",
     "process_file",
 ]

@@ -139,6 +139,32 @@ async def test_sm_batched_returns_correct_result_per_caller():
 
 
 # ---------------------------------------------------------------------------
+# BatchGatherer — inference semaphore
+# ---------------------------------------------------------------------------
+
+
+async def test_inference_sem_serialises_concurrent_fires():
+    """At most one _fire runs at a time regardless of concurrent batches."""
+    active = 0
+    peak = 0
+
+    async def slow_batch(items: list) -> list:
+        nonlocal active, peak
+        active += 1
+        peak = max(peak, active)
+        await asyncio.sleep(0.02)   # simulate ONNX inference time
+        active -= 1
+        return items
+
+    gatherer = BatchGatherer(slow_batch, max_size=2)
+    # Submit 6 items — should produce 3 batches of 2
+    await asyncio.gather(*[gatherer.submit(i) for i in range(6)])
+
+    # Despite concurrent submits, inference semaphore caps active batches at 1
+    assert peak == 1
+
+
+# ---------------------------------------------------------------------------
 # AsyncWrapper — @sm.threaded
 # ---------------------------------------------------------------------------
 
