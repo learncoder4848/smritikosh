@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import click
 
 from smritikosh.constants import DEFAULT_DB_PATH
+from smritikosh.exploration_cli import explore
 
 if TYPE_CHECKING:
     from smritikosh.adapters.storage.duckdb import DuckDBAdapter
@@ -83,6 +84,9 @@ def main() -> None:
     """smritikosh -- semantic vector search over a codebase."""
 
 
+main.add_command(explore)
+
+
 # ── smritikosh index ──────────────────────────────────────────────────────────
 
 
@@ -134,11 +138,15 @@ def index(
             fill_char="█",
             empty_char="░",
         ) as bar:
+
             def _on_file(path: str) -> None:  # noqa: E306
                 bar.update(1)
 
             build_index(
-                repo_path, emb, storage, vector_store,
+                repo_path,
+                emb,
+                storage,
+                vector_store,
                 on_file_indexed=_on_file,
             )
 

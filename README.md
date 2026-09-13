@@ -108,6 +108,48 @@ make lock    TOOL=uv    # regenerates uv.lock
 make test               # always uses .venv/bin/python directly
 ```
 
+## Read-only exploration CLI
+
+The `explore` commands expose the indexed repository to agents without reading
+the source tree or taking a DuckDB write lock:
+
+```bash
+smritikosh explore tools --json-output
+
+smritikosh explore info --db-path smritikosh.duckdb --json-output
+
+smritikosh explore search \
+  "where is access control enforced" \
+  "authorization decision logic" \
+  --exclude-path 'tests/%' \
+  --db-path smritikosh.duckdb \
+  --json-output
+
+smritikosh explore paths statement_eligibility \
+  --db-path smritikosh.duckdb
+
+smritikosh explore chunks core/common/statement_eligibility.py \
+  --db-path smritikosh.duckdb \
+  --json-output
+
+smritikosh explore text is_account_eligible \
+  --path core/common/statement_eligibility.py \
+  --db-path smritikosh.duckdb \
+  --json-output
+```
+
+Multiple semantic queries are embedded in one model call. Results are
+deduplicated and ranked by each chunk's best score across those queries. Path,
+text, and chunk commands do not load the embedding model.
+
+`explore tools` returns a machine-readable command manifest and recommended
+workflow. An agent instruction can therefore stay short:
+
+```text
+Use the Smritikosh exploration CLI instead of Grep for code discovery.
+Run `uv run smritikosh explore tools --json-output` to discover its commands.
+```
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for commit and PR conventions.
