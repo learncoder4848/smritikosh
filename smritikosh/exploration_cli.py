@@ -9,6 +9,7 @@ from typing import Final, cast
 
 import click
 
+from smritikosh.adapters.embedder import make_embedder
 from smritikosh.constants import DEFAULT_DB_PATH
 from smritikosh.exploration import IndexedChunk, ReadOnlyExplorer, SearchOptions
 from smritikosh.models import SearchResult
@@ -129,7 +130,12 @@ def explore() -> None:
 
 
 @explore.command("tools")
-@click.option("--json-output", is_flag=True, help="Emit machine-readable JSON.")
+@click.option(
+    "--json-output",
+    "--json_output",
+    is_flag=True,
+    help="Emit machine-readable JSON.",
+)
 def list_tools(json_output: bool) -> None:
     """Describe exploration commands and the recommended agent workflow."""
     if json_output:
@@ -146,11 +152,17 @@ def list_tools(json_output: bool) -> None:
 @explore.command("info")
 @click.option(
     "--db-path",
+    "--db_path",
     default=DEFAULT_DB_PATH,
     show_default=True,
     type=click.Path(exists=True, dir_okay=False),
 )
-@click.option("--json-output", is_flag=True, help="Emit machine-readable JSON.")
+@click.option(
+    "--json-output",
+    "--json_output",
+    is_flag=True,
+    help="Emit machine-readable JSON.",
+)
 def index_info(db_path: str, json_output: bool) -> None:
     """Show indexed file, chunk, vector, and dimension counts."""
     with ReadOnlyExplorer(db_path) as explorer:
@@ -166,24 +178,38 @@ def index_info(db_path: str, json_output: bool) -> None:
 
 @explore.command("search")
 @click.argument("queries", nargs=-1, required=True)
-@click.option("--top-k", default=10, show_default=True, type=click.IntRange(min=1))
+@click.option(
+    "--top-k",
+    "--top_k",
+    default=10,
+    show_default=True,
+    type=click.IntRange(min=1),
+)
 @click.option(
     "--include-path",
+    "--include_path",
     multiple=True,
     help="SQL LIKE path pattern to include; repeat for multiple constraints.",
 )
 @click.option(
     "--exclude-path",
+    "--exclude_path",
     multiple=True,
     help="SQL LIKE path pattern to exclude; repeat for multiple constraints.",
 )
 @click.option(
     "--db-path",
+    "--db_path",
     default=DEFAULT_DB_PATH,
     show_default=True,
     type=click.Path(exists=True, dir_okay=False),
 )
-@click.option("--json-output", is_flag=True, help="Emit machine-readable JSON.")
+@click.option(
+    "--json-output",
+    "--json_output",
+    is_flag=True,
+    help="Emit machine-readable JSON.",
+)
 def semantic_search(
     queries: tuple[str, ...],
     top_k: int,
@@ -193,8 +219,6 @@ def semantic_search(
     json_output: bool,
 ) -> None:
     """Search semantically; pass multiple QUERY values to merge their rankings."""
-    from smritikosh.adapters.embedder import make_embedder
-
     options = SearchOptions(
         top_k=top_k,
         include_paths=include_path,
@@ -219,11 +243,17 @@ def semantic_search(
 @click.option("--limit", default=50, show_default=True, type=click.IntRange(min=1))
 @click.option(
     "--db-path",
+    "--db_path",
     default=DEFAULT_DB_PATH,
     show_default=True,
     type=click.Path(exists=True, dir_okay=False),
 )
-@click.option("--json-output", is_flag=True, help="Emit machine-readable JSON.")
+@click.option(
+    "--json-output",
+    "--json_output",
+    is_flag=True,
+    help="Emit machine-readable JSON.",
+)
 def find_paths(pattern: str, limit: int, db_path: str, json_output: bool) -> None:
     """Find indexed paths containing PATTERN."""
     with ReadOnlyExplorer(db_path) as explorer:
@@ -240,11 +270,17 @@ def find_paths(pattern: str, limit: int, db_path: str, json_output: bool) -> Non
 @click.option("--limit", default=20, show_default=True, type=click.IntRange(min=1))
 @click.option(
     "--db-path",
+    "--db_path",
     default=DEFAULT_DB_PATH,
     show_default=True,
     type=click.Path(exists=True, dir_okay=False),
 )
-@click.option("--json-output", is_flag=True, help="Emit machine-readable JSON.")
+@click.option(
+    "--json-output",
+    "--json_output",
+    is_flag=True,
+    help="Emit machine-readable JSON.",
+)
 def text_search(
     text: str,
     path: str | None,
@@ -267,15 +303,21 @@ def text_search(
 
 @explore.command("chunks")
 @click.argument("path")
-@click.option("--start-line", type=click.IntRange(min=1))
-@click.option("--end-line", type=click.IntRange(min=1))
+@click.option("--start-line", "--start_line", type=click.IntRange(min=1))
+@click.option("--end-line", "--end_line", type=click.IntRange(min=1))
 @click.option(
     "--db-path",
+    "--db_path",
     default=DEFAULT_DB_PATH,
     show_default=True,
     type=click.Path(exists=True, dir_okay=False),
 )
-@click.option("--json-output", is_flag=True, help="Emit machine-readable JSON.")
+@click.option(
+    "--json-output",
+    "--json_output",
+    is_flag=True,
+    help="Emit machine-readable JSON.",
+)
 def get_chunks(
     path: str,
     start_line: int | None,
