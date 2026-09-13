@@ -20,6 +20,10 @@ class _StubEmbedder:
         vectors: dict[str, list[float]] = {
             "implementation": [1.0, 0.0, 0.0],
             "tests": [0.0, 1.0, 0.0],
+            "ranking": [0.65, 0.76, 0.0],
+            "test ranking": [0.65, 0.76, 0.0],
+            "reference material ranking": [0.65, 0.0, 0.76],
+            "documentation ranking": [0.65, 0.0, 0.76],
         }
         return [vectors[text] for text in texts]
 
@@ -46,6 +50,7 @@ def indexed_db(tmp_path: Path) -> str:
     )
     rows: list[tuple[str, str, str, str]] = [
         ("file:src/billing.py", "file", "src/billing.py", "{}"),
+        ("file:docs/billing.md", "file", "docs/billing.md", "{}"),
         (
             "chunk:implementation",
             "chunk",
@@ -72,6 +77,19 @@ def indexed_db(tmp_path: Path) -> str:
                 }
             ),
         ),
+        (
+            "chunk:documentation",
+            "chunk",
+            "docs/billing.md",
+            json.dumps(
+                {
+                    "start_line": 1,
+                    "end_line": 5,
+                    "text": "# Billing eligibility",
+                    "chunk_kind": "section",
+                }
+            ),
+        ),
     ]
     connection.executemany("INSERT INTO nodes VALUES (?, ?, ?, ?)", rows)
     connection.executemany(
@@ -79,6 +97,7 @@ def indexed_db(tmp_path: Path) -> str:
         [
             ("chunk:implementation", [1.0, 0.0, 0.0]),
             ("chunk:test", [0.0, 1.0, 0.0]),
+            ("chunk:documentation", [0.0, 0.0, 1.0]),
         ],
     )
     connection.execute("INSERT INTO kv_store VALUES ('embedder_dims', '3')")
@@ -95,7 +114,7 @@ def test_should_report_index_counts_when_index_exists(indexed_db: str) -> None:
     explorer.close()
 
     # Assert
-    assert (info.files, info.chunks, info.vectors, info.dimensions) == (1, 2, 2, 3)
+    assert (info.files, info.chunks, info.vectors, info.dimensions) == (2, 3, 3, 3)
 
 
 def test_should_merge_ad_hoc_queries_by_best_score(indexed_db: str) -> None:
@@ -126,12 +145,78 @@ def test_should_exclude_paths_when_semantically_searching(indexed_db: str) -> No
     results = explorer.semantic_search(
         ["tests"],
         embedder=_StubEmbedder(),
-        options=SearchOptions(top_k=2, exclude_paths=("tests/%",)),
+        options=SearchOptions(top_k=1, exclude_paths=("tests/%",)),
     )
     explorer.close()
 
     # Assert
     assert [result.path for result in results] == ["src/billing.py"]
+
+
+def test_should_demote_test_paths_by_default(indexed_db: str) -> None:
+    # Arrange
+    explorer = ReadOnlyExplorer(indexed_db)
+
+    # Act
+    results = explorer.semantic_search(
+        ["ranking"],
+        embedder=_StubEmbedder(),
+        options=SearchOptions(top_k=1),
+    )
+    explorer.close()
+
+    # Assert
+    assert [result.path for result in results] == ["src/billing.py"]
+
+
+def test_should_demote_documentation_paths_by_default(indexed_db: str) -> None:
+    # Arrange
+    explorer = ReadOnlyExplorer(indexed_db)
+
+    # Act
+    results = explorer.semantic_search(
+        ["reference material ranking"],
+        embedder=_StubEmbedder(),
+        options=SearchOptions(top_k=1),
+    )
+    explorer.close()
+
+    # Assert
+    assert [result.path for result in results] == ["src/billing.py"]
+
+
+def test_should_not_demote_tests_when_requested_by_query(indexed_db: str) -> None:
+    # Arrange
+    explorer = ReadOnlyExplorer(indexed_db)
+
+    # Act
+    results = explorer.semantic_search(
+        ["test ranking"],
+        embedder=_StubEmbedder(),
+        options=SearchOptions(top_k=1),
+    )
+    explorer.close()
+
+    # Assert
+    assert [result.path for result in results] == ["tests/test_billing.py"]
+
+
+def test_should_not_demote_documentation_when_requested_by_query(
+    indexed_db: str,
+) -> None:
+    # Arrange
+    explorer = ReadOnlyExplorer(indexed_db)
+
+    # Act
+    results = explorer.semantic_search(
+        ["documentation ranking"],
+        embedder=_StubEmbedder(),
+        options=SearchOptions(top_k=1),
+    )
+    explorer.close()
+
+    # Assert
+    assert [result.path for result in results] == ["docs/billing.md"]
 
 
 def test_should_find_paths_by_case_insensitive_substring(indexed_db: str) -> None:
@@ -143,7 +228,11 @@ def test_should_find_paths_by_case_insensitive_substring(indexed_db: str) -> Non
     explorer.close()
 
     # Assert
-    assert paths == ["src/billing.py", "tests/test_billing.py"]
+    assert paths == [
+        "docs/billing.md",
+        "src/billing.py",
+        "tests/test_billing.py",
+    ]
 
 
 def test_should_find_exact_text_within_one_path(indexed_db: str) -> None:
