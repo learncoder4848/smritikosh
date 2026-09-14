@@ -63,16 +63,12 @@ def node_for(content: str, text: str, node_id: int | None = None) -> FakeNode:
     return n
 
 
-def parsed(
-    content: str, path: str = "test.py", language: str = "python"
-) -> ParsedFile:
+def parsed(content: str, path: str = "test.py", language: str = "python") -> ParsedFile:
     """Return a ParsedFile wrapping *content*."""
     return ParsedFile(path=path, language=language, content=content, tree=None)
 
 
-def cap(
-    name: str, node: FakeNode, path: str = "test.py", key: str = ""
-) -> Capture:
+def cap(name: str, node: FakeNode, path: str = "test.py", key: str = "") -> Capture:
     """Return a Capture for *node* with the given capture *name*.
 
     *key* populates ``Capture.name`` — the captured symbol/key text, which the

@@ -1,6 +1,5 @@
 """Tests for fingerprinting helpers."""
 
-
 from smritikosh.engine._context import ContextKey, PipelineContext
 from smritikosh.engine._fingerprint import (
     _compute_context_fingerprint,

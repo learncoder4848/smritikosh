@@ -75,9 +75,7 @@ class FastEmbedEmbedder(Embedder):
         """
         if self._max_tokens is None:
             truncation = self._load().model.tokenizer.truncation or {}
-            self._max_tokens = int(
-                truncation.get("max_length") or super().max_tokens
-            )
+            self._max_tokens = int(truncation.get("max_length") or super().max_tokens)
         return self._max_tokens
 
     def encode_documents(self, texts: list[str]) -> list[list[float]]:

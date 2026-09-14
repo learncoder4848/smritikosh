@@ -85,14 +85,14 @@ async def process_chunk(chunk: Chunk) -> None:
 @sm.memoized
 async def process_file(source: SourceFile) -> None:
     """Parse → extract → chunk → embed one source file incrementally."""
-    storage      = use_context(STORAGE)
+    storage = use_context(STORAGE)
     vector_store = use_context(VECTOR_STORE)
 
-    old_ids  = storage.get_chunk_ids_for_file(source.path)
-    parsed   = await _parse(source)
+    old_ids = storage.get_chunk_ids_for_file(source.path)
+    parsed = await _parse(source)
     captures = await _extract(parsed, source.has_tags_scm)
-    chunks   = await _chunk(parsed, captures, source.strategy)
-    new_ids  = {c.id for c in chunks}
+    chunks = await _chunk(parsed, captures, source.strategy)
+    new_ids = {c.id for c in chunks}
 
     for stale_id in old_ids - new_ids:
         storage.delete_chunk_node(stale_id)
@@ -120,17 +120,17 @@ async def _run_pipeline(
     on_file_indexed: Callable[[str], None] | None = None,
 ) -> None:
     """Discover files, clean up deleted ones, fan out process_file."""
-    storage     = use_context(STORAGE)
-    embedder    = use_context(EMBEDDER)
+    storage = use_context(STORAGE)
+    embedder = use_context(EMBEDDER)
     file_source = LocalFileSource(repo_path)
     # Chunks are capped at what this model actually encodes — an over-long
     # chunk would be stored whole but embedded from its prefix only.
-    max_chars   = budget_chars(embedder.max_tokens)
-    files       = list(iter_source_files(file_source, _build_router(max_chars)))
+    max_chars = budget_chars(embedder.max_tokens)
+    files = list(iter_source_files(file_source, _build_router(max_chars)))
 
-    stored_paths  = set(storage.get_all_file_paths())
+    stored_paths = set(storage.get_all_file_paths())
     current_paths = {f.path for f in files}
-    memo_store    = get_memo_store()
+    memo_store = get_memo_store()
 
     for deleted in stored_paths - current_paths:
         storage.delete_file(deleted)
@@ -141,7 +141,8 @@ async def _run_pipeline(
             on_file_indexed(source.path)
 
     await sm.fan_out(
-        process_file, files,
+        process_file,
+        files,
         concurrency=file_concurrency,
         item_done=_item_done,
     )
@@ -191,11 +192,11 @@ def build_index(
         the file path as a string.  Used by the CLI to drive progress bars.
     """
     embedder = embedder or FastEmbedEmbedder()
-    storage  = storage  or DuckDBAdapter(DEFAULT_DB_PATH)
+    storage = storage or DuckDBAdapter(DEFAULT_DB_PATH)
 
     # Share DuckDB connection across vector store and memo cache when available.
     # Adapters without .con skip memoization and always re-evaluate the pipeline.
-    _con         = getattr(storage, "con", None)
+    _con = getattr(storage, "con", None)
     vector_store = vector_store or DuckDBVectorStore(DEFAULT_DB_PATH, con=_con)
 
     vector_store.setup(embedder.dims)
@@ -209,8 +210,10 @@ def build_index(
     ctx.provide(VECTOR_STORE, vector_store)
 
     with ctx:
-        asyncio.run(_run_pipeline(
-            repo_path,
-            file_concurrency=file_concurrency,
-            on_file_indexed=on_file_indexed,
-        ))
+        asyncio.run(
+            _run_pipeline(
+                repo_path,
+                file_concurrency=file_concurrency,
+                on_file_indexed=on_file_indexed,
+            )
+        )

@@ -120,9 +120,7 @@ async def test_sm_batched_groups_concurrent_calls():
         batch_calls.append(len(texts))
         return [t.upper() for t in texts]
 
-    results = await asyncio.gather(
-        embed("a"), embed("b"), embed("c"), embed("d")
-    )
+    results = await asyncio.gather(embed("a"), embed("b"), embed("c"), embed("d"))
     assert list(results) == ["A", "B", "C", "D"]
     assert batch_calls == [4]  # single batch call
 
@@ -152,7 +150,7 @@ async def test_inference_sem_serialises_concurrent_fires():
         nonlocal active, peak
         active += 1
         peak = max(peak, active)
-        await asyncio.sleep(0.02)   # simulate ONNX inference time
+        await asyncio.sleep(0.02)  # simulate ONNX inference time
         active -= 1
         return items
 

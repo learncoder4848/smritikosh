@@ -48,8 +48,7 @@ class MemoizationStore:
     def get(self, component_path: str, cache_key: str) -> tuple[bool, Any]:
         """Return ``(True, result)`` on hit, ``(False, None)`` on miss."""
         row = self._con.execute(
-            "SELECT result FROM memo_cache "
-            "WHERE component_path = ? AND cache_key = ?",
+            "SELECT result FROM memo_cache WHERE component_path = ? AND cache_key = ?",
             [component_path, cache_key],
         ).fetchone()
         if row is None:
