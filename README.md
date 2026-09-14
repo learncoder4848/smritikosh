@@ -199,7 +199,9 @@ Built by [Shantanu Vashishtha](https://github.com/learncoder4848) and
 
 ## Status
 
-The engine, shared models, query files, embedder, DuckDB adapters, chunking
-strategies, and capture extractor are implemented. File selection (file source,
-router, discovery), tree-sitter parsing, end-to-end pipeline wiring, search, and
-the final CLI remain under construction.
+Alpha. The pipeline runs end to end — `index` builds an index, `search` and
+`explore` query it, and re-indexing is incremental at both the file and the
+chunk level. Embedding runs locally on CPU through ONNX Runtime, so the only
+network access is a one-time model download.
+
+The CLI surface may still change before 1.0.
