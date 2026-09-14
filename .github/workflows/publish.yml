@@ -1,0 +1,91 @@
+name: Publish
+
+# Two ways in:
+#   - push a v* tag        -> release to PyPI
+#   - run manually         -> release to TestPyPI, for rehearsing a release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      # No lock file is committed, so this resolves fresh on every run.
+      - run: uv sync --all-groups
+      - run: make test
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+
+      # A tag that disagrees with pyproject.toml would publish a version nobody
+      # can find from the git history, and PyPI will not let it be replaced.
+      - name: Check tag matches project version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          project_version=$(uv version --short)
+          tag_version=${GITHUB_REF_NAME#v}
+          if [ "$project_version" != "$tag_version" ]; then
+            echo "Tag $GITHUB_REF_NAME implies $tag_version, but pyproject.toml says $project_version." >&2
+            exit 1
+          fi
+
+      - run: uv build
+
+      # The .scm query files reach the wheel only through a package-data glob
+      # in pyproject.toml; nothing else fails if that glob stops matching.
+      - name: Check wheel carries the tag queries
+        run: |
+          found=$(unzip -l dist/*.whl | grep -c 'queries/.*/tags\.scm')
+          if [ "$found" -ne 7 ]; then
+            echo "Expected 7 tags.scm files in the wheel, found $found." >&2
+            exit 1
+          fi
+
+      - run: uvx --from twine twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish-testpypi:
+    needs: build
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write # mints the OIDC token that Trusted Publishing exchanges
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          # TestPyPI keeps earlier rehearsals of the same version around.
+          skip-existing: true
+
+  publish-pypi:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
