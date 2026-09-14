@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import duckdb
 
@@ -20,6 +21,29 @@ __all__ = [
     "ReadOnlyExplorer",
     "SearchOptions",
 ]
+
+_NON_PRODUCTION_PATH_PENALTY: Final[float] = 0.8
+_TEST_INTENT_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"(?<!\w)(?:tests?|testing|pytest|unittest|specs?)(?!\w)",
+    re.IGNORECASE,
+)
+_DOCUMENTATION_INTENT_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"(?<!\w)(?:docs?|documentation|readme|markdown|changelog)(?!\w)",
+    re.IGNORECASE,
+)
+_TEST_PATH_SQL: Final[str] = """
+    regexp_matches(lower(path), '(^|/)(tests?|__tests__|specs?)(/|$)')
+    OR regexp_matches(
+        lower(path),
+        '(^|/)(test_[^/]*|[^/]*_(test|spec)|'
+        || '[^/]*\\.(test|spec))\\.[^/]+$'
+    )
+"""
+_DOCUMENTATION_PATH_SQL: Final[str] = """
+    regexp_matches(lower(path), '(^|/)(docs?|documentation)(/|$)')
+    OR regexp_matches(lower(path), '(^|/)(readme|changelog)(\\.[^/]*)?$')
+    OR regexp_matches(lower(path), '\\.(md|mdx|rst|adoc)$')
+"""
 
 
 @dataclass(frozen=True)
@@ -140,11 +164,19 @@ class ReadOnlyExplorer:
 
         vectors: list[list[float]] = embedder.encode_queries(normalized_queries)
         hits: dict[str, tuple[float, IndexedChunk]] = {}
-        for vector in vectors:
+        for query, vector in zip(normalized_queries, vectors, strict=True):
             for score, chunk in self._search_vector(
                 vector=vector,
                 dimensions=dimensions,
                 options=options,
+                test_path_penalty=self._path_penalty(
+                    query,
+                    intent_pattern=_TEST_INTENT_PATTERN,
+                ),
+                documentation_path_penalty=self._path_penalty(
+                    query,
+                    intent_pattern=_DOCUMENTATION_INTENT_PATTERN,
+                ),
             ):
                 previous: tuple[float, IndexedChunk] | None = hits.get(chunk.chunk_id)
                 if previous is None or score > previous[0]:
@@ -275,6 +307,8 @@ class ReadOnlyExplorer:
         vector: list[float],
         dimensions: int,
         options: SearchOptions,
+        test_path_penalty: float,
+        documentation_path_penalty: float,
     ) -> list[tuple[float, IndexedChunk]]:
         clauses: list[str] = ["n.kind = 'chunk'"]
         parameters: list[object] = [vector]
@@ -287,21 +321,50 @@ class ReadOnlyExplorer:
         for pattern in options.exclude_paths:
             clauses.append("n.path NOT LIKE ?")
             parameters.append(pattern)
+        parameters.extend([test_path_penalty, documentation_path_penalty])
         parameters.append(options.top_k)
         where_clause: str = " AND ".join(clauses)
         rows: list[tuple[str, str, str, float]] = self._connection.execute(
-            f"""
-            SELECT n.id, n.path, n.metadata,
-                   array_cosine_similarity(v.vector, ?::FLOAT[{dimensions}]) AS score
-            FROM vectors AS v
-            JOIN nodes AS n ON n.id = v.chunk_id
-            WHERE {where_clause}
-            ORDER BY score DESC
-            LIMIT ?
-            """,  # noqa: S608
+            self._vector_search_sql(
+                dimensions=dimensions,
+                where_clause=where_clause,
+            ),
             parameters,
         ).fetchall()
         return [(row[3], self._to_chunk(row[:3])) for row in rows]
+
+    @staticmethod
+    def _path_penalty(query: str, *, intent_pattern: re.Pattern[str]) -> float:
+        """Return full weight when a query explicitly requests a path category."""
+        if intent_pattern.search(query):
+            return 1.0
+        return _NON_PRODUCTION_PATH_PENALTY
+
+    @staticmethod
+    def _vector_search_sql(*, dimensions: int, where_clause: str) -> str:
+        """Build the vector query with production-first score adjustments."""
+        return f"""
+            WITH candidates AS (
+                SELECT n.id, n.path, n.metadata,
+                       array_cosine_similarity(
+                           v.vector, ?::FLOAT[{dimensions}]
+                       ) AS raw_score
+                FROM vectors AS v
+                JOIN nodes AS n ON n.id = v.chunk_id
+                WHERE {where_clause}
+            )
+            SELECT id, path, metadata,
+                   CASE
+                       WHEN ({_TEST_PATH_SQL})
+                       THEN raw_score - ((1.0 - ?) * abs(raw_score))
+                       WHEN ({_DOCUMENTATION_PATH_SQL})
+                       THEN raw_score - ((1.0 - ?) * abs(raw_score))
+                       ELSE raw_score
+                   END AS score
+            FROM candidates
+            ORDER BY score DESC
+            LIMIT ?
+        """  # noqa: S608
 
     @staticmethod
     def _to_chunk(row: tuple[str, str, str]) -> IndexedChunk:

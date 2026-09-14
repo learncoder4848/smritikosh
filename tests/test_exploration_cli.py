@@ -83,7 +83,7 @@ def test_should_forward_multiple_ad_hoc_semantic_queries(tmp_path: Path) -> None
             return_value=explorer,
         ),
         patch(
-            "smritikosh.adapters.embedder.make_embedder",
+            "smritikosh.exploration_cli.make_embedder",
             return_value=embedder,
         ),
     ):
@@ -112,3 +112,42 @@ def test_should_forward_multiple_ad_hoc_semantic_queries(tmp_path: Path) -> None
         options=SearchOptions(top_k=5, exclude_paths=("tests/%",)),
     )
     assert json.loads(result.output)[0]["path"] == "src/a.py"
+
+
+def test_should_accept_manifest_argument_names_for_semantic_search(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    db_path: Path = tmp_path / "index.duckdb"
+    db_path.touch()
+    explorer = _mock_explorer()
+    explorer.semantic_search.return_value = []
+
+    # Act
+    with (
+        patch(
+            "smritikosh.exploration_cli.ReadOnlyExplorer",
+            return_value=explorer,
+        ),
+        patch(
+            "smritikosh.exploration_cli.make_embedder",
+            return_value=MagicMock(),
+        ),
+    ):
+        result = CliRunner().invoke(
+            main,
+            [
+                "explore",
+                "search",
+                "skip statement generation",
+                "--top_k",
+                "5",
+                "--db_path",
+                str(db_path),
+                "--json_output",
+            ],
+        )
+
+    # Assert
+    assert result.exit_code == 0
+    explorer.semantic_search.assert_called_once()
