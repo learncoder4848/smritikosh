@@ -192,6 +192,11 @@ Run `uv run smritikosh explore tools` to discover its commands.
 See [CONTRIBUTING.md](https://github.com/learncoder4848/smritikosh/blob/main/CONTRIBUTING.md)
 for commit and PR conventions.
 
+## Credits
+
+Built by [Shantanu Vashishtha](https://github.com/learncoder4848) and
+[Sarvesh Sawant](https://github.com/devsarvesh92).
+
 ## Status
 
 The engine, shared models, query files, embedder, DuckDB adapters, chunking
