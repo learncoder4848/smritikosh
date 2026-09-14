@@ -137,6 +137,7 @@ def build_chunk(
     chunk_kind: str,
     start_line: int,
     end_line: int,
+    symbol: str | None = None,
 ) -> Chunk:
     """Build a content-addressed Chunk. id is sha256(text)[:16]."""
     digest = content_hash(text)
@@ -148,6 +149,7 @@ def build_chunk(
         text=text,
         chunk_kind=chunk_kind,
         content_hash=digest,
+        symbol=symbol,
     )
 
 
@@ -159,6 +161,7 @@ def build_chunks(
     start_line: int,
     end_line: int,
     max_chars: int | None = None,
+    symbol: str | None = None,
 ) -> list[Chunk]:
     """Build one Chunk per line-window of *text*, splitting if over budget.
 
@@ -166,9 +169,13 @@ def build_chunks(
     is what the tests and any caller without an embedder in scope want.
     Because ids stay content-addressed, a split piece is memoised and skipped
     independently — editing one constant re-embeds one window, not the file.
+
+    Every window of a split definition keeps that definition's *symbol*: the
+    windows are pieces of one function, and naming them all lets a reader see
+    which definition a fragment belongs to.
     """
     if max_chars is None or len(text) <= max_chars:
-        return [build_chunk(path, text, chunk_kind, start_line, end_line)]
+        return [build_chunk(path, text, chunk_kind, start_line, end_line, symbol)]
     return [
         build_chunk(
             path,
@@ -176,6 +183,7 @@ def build_chunks(
             chunk_kind,
             start_line + first,
             start_line + last,
+            symbol,
         )
         for piece, first, last in split_oversized(text, max_chars)
     ]
@@ -187,6 +195,7 @@ def make_node_chunks(
     chunk_kind: str,
     content_bytes: bytes | None = None,
     max_chars: int | None = None,
+    symbol: str | None = None,
 ) -> list[Chunk]:
     """Build Chunks from a single tree-sitter node, splitting if oversized."""
     text = extract_node_text(parsed, node, content_bytes)
@@ -197,6 +206,7 @@ def make_node_chunks(
         node.start_point[0] + 1,
         node.end_point[0] + 1,
         max_chars,
+        symbol,
     )
 
 
@@ -232,8 +242,9 @@ def make_text_chunks(
     start_line: int,
     end_line: int,
     max_chars: int | None = None,
+    symbol: str | None = None,
 ) -> list[Chunk]:
     """Build Chunks from a pre-extracted text string, splitting if oversized."""
     return build_chunks(
-        parsed.path, text, chunk_kind, start_line, end_line, max_chars
+        parsed.path, text, chunk_kind, start_line, end_line, max_chars, symbol
     )

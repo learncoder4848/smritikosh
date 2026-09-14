@@ -86,6 +86,7 @@ class DuckDBAdapter(StorageAdapter):
         rows = [
             (
                 chunk.id,
+                chunk.symbol,
                 chunk.path,
                 json.dumps(
                     {
@@ -101,8 +102,8 @@ class DuckDBAdapter(StorageAdapter):
         ]
         self.con.executemany(
             """
-            INSERT OR REPLACE INTO nodes (id, kind, path, metadata)
-            VALUES (?, 'chunk', ?, ?)
+            INSERT OR REPLACE INTO nodes (id, kind, name, path, metadata)
+            VALUES (?, 'chunk', ?, ?, ?)
             """,
             rows,
         )
@@ -123,12 +124,12 @@ class DuckDBAdapter(StorageAdapter):
             return []
         placeholders = ", ".join("?" * len(chunk_ids))
         rows = self.con.execute(
-            f"SELECT id, path, metadata FROM nodes"  # noqa: S608
+            f"SELECT id, name, path, metadata FROM nodes"  # noqa: S608
             f" WHERE id IN ({placeholders}) AND kind = 'chunk'",
             chunk_ids,
         ).fetchall()
         result = []
-        for chunk_id, path, raw_meta in rows:
+        for chunk_id, symbol, path, raw_meta in rows:
             meta = json.loads(raw_meta) if isinstance(raw_meta, str) else raw_meta
             result.append(
                 {
@@ -138,6 +139,7 @@ class DuckDBAdapter(StorageAdapter):
                     "end_line": meta["end_line"],
                     "text": meta["text"],
                     "chunk_kind": meta["chunk_kind"],
+                    "symbol": symbol,
                 }
             )
         return result

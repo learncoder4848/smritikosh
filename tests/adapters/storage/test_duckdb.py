@@ -31,6 +31,7 @@ def _chunk(
     text: str = "def foo(): pass",
     start_line: int = 1,
     end_line: int = 1,
+    symbol: str | None = None,
 ) -> Chunk:
     import hashlib
 
@@ -43,6 +44,7 @@ def _chunk(
         text=text,
         chunk_kind="ast",
         content_hash=content_hash,
+        symbol=symbol,
     )
 
 
@@ -208,6 +210,20 @@ def test_get_chunks_by_ids_returns_correct_metadata(adapter: DuckDBAdapter) -> N
     assert row["chunk_kind"] == "ast"
 
 
+def test_get_chunks_by_ids_returns_the_stored_symbol(adapter: DuckDBAdapter) -> None:
+    adapter.upsert_chunk_nodes([_chunk("c1", symbol="InterestCalculator")])
+
+    assert adapter.get_chunks_by_ids(["c1"])[0]["symbol"] == "InterestCalculator"
+
+
+def test_get_chunks_by_ids_returns_no_symbol_when_the_chunker_knew_none(
+    adapter: DuckDBAdapter,
+) -> None:
+    adapter.upsert_chunk_nodes([_chunk("c1")])
+
+    assert adapter.get_chunks_by_ids(["c1"])[0]["symbol"] is None
+
+
 def test_get_chunks_by_ids_returns_empty_list_for_empty_input(
     adapter: DuckDBAdapter,
 ) -> None:
@@ -313,10 +329,10 @@ def test_clear_caches_is_noop_on_empty_tables(adapter: DuckDBAdapter) -> None:
 
 def test_clear_caches_does_not_touch_nodes_table(adapter: DuckDBAdapter) -> None:
     """Chunk/file nodes are preserved; only the incremental caches are wiped."""
-    adapter.upsert_chunk_nodes([_chunk("c1")])      # default path: "a/b.py"
+    adapter.upsert_chunk_nodes([_chunk("c1")])  # default path: "a/b.py"
     adapter.set_file_hash("a/b.py", "h1")
 
     adapter.clear_caches()
 
     assert adapter.get_chunk_ids_for_file("a/b.py") == {"c1"}  # nodes untouched
-    assert adapter.get_all_file_paths() == set()                # hashes cleared
+    assert adapter.get_all_file_paths() == set()  # hashes cleared

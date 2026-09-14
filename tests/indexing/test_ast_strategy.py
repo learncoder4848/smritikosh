@@ -127,6 +127,42 @@ class TestAstChunkingStrategy:
         assert chunks[0].chunk_kind == "function"
         assert "def foo" in chunks[0].text
 
+    def test_function_chunk_carries_its_symbol_name(self) -> None:
+        content = "def foo():\n    return 1\n"
+        p = parsed(content)
+        node = node_for(content, "def foo():\n    return 1")
+
+        chunks = self.strategy.chunk(p, [cap("definition.function", node, key="foo")])
+
+        assert chunks[0].symbol == "foo"
+
+    def test_every_window_of_a_split_function_keeps_the_symbol(self) -> None:
+        body = "\n".join(f"    line_{n} = {n}" for n in range(40))
+        content = f"def wide():\n{body}\n"
+        p = parsed(content)
+        node = node_for(content, f"def wide():\n{body}")
+
+        chunks = AstChunkingStrategy(max_chars=120).chunk(
+            p, [cap("definition.function", node, key="wide")]
+        )
+
+        assert len(chunks) > 1
+        assert {chunk.symbol for chunk in chunks} == {"wide"}
+
+    def test_grouped_constants_have_no_single_symbol(self) -> None:
+        content = "A = 1\nB = 2\n"
+        p = parsed(content)
+
+        chunks = self.strategy.chunk(
+            p,
+            [
+                cap("definition.constant", node_for(content, "A = 1"), key="A"),
+                cap("definition.constant", node_for(content, "B = 2"), key="B"),
+            ],
+        )
+
+        assert [chunk.symbol for chunk in chunks] == [None]
+
     def test_class_init_absorbed_into_class_chunk(self) -> None:
         content = "class Foo:\n    def __init__(self):\n        pass\n"
         p = parsed(content)
