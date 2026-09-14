@@ -8,6 +8,11 @@ htmlcov/
 build/
 dist/
 plan/
+# Lock files are deliberately not committed: this is a library, so consumers
+# resolve from the version ranges in pyproject.toml, and both tools regenerate
+# these on demand.
+uv.lock
+poetry.lock
 # Built indexes: large binaries, regenerable from source.
 # .wal is DuckDB's write-ahead log, left behind if a write is interrupted.
 *.duckdb

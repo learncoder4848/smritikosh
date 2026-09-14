@@ -49,24 +49,35 @@ bundles, and fixture directories.
 
 ## Package structure
 
-- [`smritikosh/indexing`](smritikosh/indexing) — file router, discovery, parser,
-  extractor, chunker, and pipeline orchestration.
-- [`smritikosh/engine`](smritikosh/engine) — memoization, tracking, batching,
-  and concurrent pipeline helpers.
-- [`smritikosh/ports`](smritikosh/ports) — file-source, storage, vector-store,
-  and embedder contracts.
-- [`smritikosh/adapters`](smritikosh/adapters) — local-filesystem, DuckDB, and
-  sentence-transformer implementations of those contracts.
-- [`smritikosh/queries`](smritikosh/queries) — packaged tree-sitter tag queries.
+- [`smritikosh/indexing`](https://github.com/learncoder4848/smritikosh/tree/main/smritikosh/indexing)
+  — file router, discovery, parser, extractor, chunker, and pipeline
+  orchestration.
+- [`smritikosh/engine`](https://github.com/learncoder4848/smritikosh/tree/main/smritikosh/engine)
+  — memoization, tracking, batching, and concurrent pipeline helpers.
+- [`smritikosh/ports`](https://github.com/learncoder4848/smritikosh/tree/main/smritikosh/ports)
+  — file-source, storage, vector-store, and embedder contracts.
+- [`smritikosh/adapters`](https://github.com/learncoder4848/smritikosh/tree/main/smritikosh/adapters)
+  — local-filesystem, DuckDB, and sentence-transformer implementations of those
+  contracts.
+- [`smritikosh/queries`](https://github.com/learncoder4848/smritikosh/tree/main/smritikosh/queries)
+  — packaged tree-sitter tag queries.
 
 The extractor stays under `indexing`: it transforms internal pipeline data
 (`ParsedFile -> list[Capture]`) rather than adapting an external system.
 
-## Design
-
-See the [v1 plan](plan/version_1.md) for the complete design.
-
 ## Installation
+
+```bash
+pip install smritikosh
+```
+
+Or with uv, to get the CLI on your PATH without managing a virtualenv:
+
+```bash
+uv tool install smritikosh
+```
+
+## Development setup
 
 Both **uv** and **Poetry** are supported. uv is recommended for local development
 — it resolves and installs the full dependency tree roughly 5× faster than
@@ -107,6 +118,10 @@ make install TOOL=uv
 make lock    TOOL=uv    # regenerates uv.lock
 make test               # always uses .venv/bin/python directly
 ```
+
+Lock files are not committed. Smritikosh is a library, so installs resolve from
+the version ranges in `pyproject.toml`; `uv.lock` and `poetry.lock` are local
+artifacts that each tool regenerates on demand.
 
 ## Read-only exploration CLI
 
@@ -174,7 +189,8 @@ Run `uv run smritikosh explore tools` to discover its commands.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for commit and PR conventions.
+See [CONTRIBUTING.md](https://github.com/learncoder4848/smritikosh/blob/main/CONTRIBUTING.md)
+for commit and PR conventions.
 
 ## Status
 
