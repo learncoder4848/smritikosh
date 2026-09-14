@@ -11,8 +11,8 @@
 ; at arbitrary lines.  Depth is therefore chosen by size, not fixed here.
 ;
 ; Three levels is what real configs need: in the reference corpus
-; `chapters` is 24 KB, `chapters.identity` is still 8.7 KB, and only at the
-; third level does `chapters.identity.submit_errors` (874 B) fit a 512-token
+; `chapters` is 24 KB, `chapters.overview` is still 8.7 KB, and only at the
+; third level does `chapters.overview.error_codes` (874 B) fit a 512-token
 ; window.  Anything still oversized at depth 3 falls through to line-window
 ; splitting, which is the correct backstop rather than more query depth.
 

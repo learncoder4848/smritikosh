@@ -139,18 +139,18 @@ smritikosh explore search \
   --exclude-path 'tests/%' \
   --db-path smritikosh.duckdb
 
-smritikosh explore paths statement_eligibility \
+smritikosh explore paths permissions \
   --db-path smritikosh.duckdb
 
-smritikosh explore chunks core/common/statement_eligibility.py \
+smritikosh explore chunks src/auth/permissions.py \
   --db-path smritikosh.duckdb
 
-smritikosh explore chunks core/common/statement_eligibility.py \
+smritikosh explore chunks src/auth/permissions.py \
   --start-line 40 --end-line 52 \
   --db-path smritikosh.duckdb
 
-smritikosh explore text is_account_eligible \
-  --path core/common/statement_eligibility.py \
+smritikosh explore text is_allowed \
+  --path src/auth/permissions.py \
   --db-path smritikosh.duckdb
 ```
 
@@ -165,8 +165,8 @@ declares its columns once and then streams one row per hit:
 
 ```text
 [2]{path,start_line,end_line,score,chunk_kind,symbol}:
-  core/computation/interest/interest_calculator.py,59,81,0.434,class,InterestCalculator
-  core/computation/interest/interest_adjustment.py,176,193,0.436,method,compute
+  src/auth/permissions.py,59,81,0.434,class,PermissionChecker
+  src/auth/policy.py,176,193,0.436,method,evaluate
 ```
 
 That costs roughly half of the equivalent JSON. `--prose` switches any command
