@@ -2,6 +2,35 @@
 name = "smritikosh"
 version = "0.1.0"
 description = "Semantic vector search over a codebase"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Shantanu Vashishtha", email = "vashishthashantanu3@gmail.com" },
+    { name = "Sarvesh Sawant", email = "sarveshdev92@gmail.com" },
+]
+keywords = [
+    "code-search",
+    "semantic-search",
+    "embeddings",
+    "tree-sitter",
+    "duckdb",
+    "vector-search",
+    "rag",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Text Processing :: Indexing",
+]
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "click>=8.1",
@@ -23,8 +52,15 @@ dependencies = [
 [project.scripts]
 smritikosh = "smritikosh.cli:main"
 
+[project.urls]
+Homepage = "https://github.com/learncoder4848/smritikosh"
+Repository = "https://github.com/learncoder4848/smritikosh"
+Issues = "https://github.com/learncoder4848/smritikosh/issues"
+
+# 77 is the first release that accepts the PEP 639 `license` expression and
+# `license-files` above; earlier versions want the old license classifier.
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
@@ -36,13 +72,6 @@ include = ["smritikosh*"]
 [tool.setuptools.package-data]
 "smritikosh.queries" = ["**/*.scm"]
 
-# ── Private index (Poetry) ────────────────────────────────────────────────────
-# Equivalent uv config lives in [[tool.uv.index]] below.
-[[tool.poetry.source]]
-name = "private-pypi"
-url = "https://artifact.intuit.com/artifactory/api/pypi/pypi-intuit/simple"
-priority = "primary"
-
 # ── Dev dependencies (PEP 735 — understood by both uv and Poetry 2.x) ─────────
 [dependency-groups]
 dev = [
@@ -53,14 +82,6 @@ dev = [
     "pre-commit>=4.6.2",
     "duckdb>=1.0",
 ]
-
-# ── Private index (uv) ────────────────────────────────────────────────────────
-# Mirrors [[tool.poetry.source]] above; uv reads this table, Poetry reads the
-# one above — both point to the same Artifactory simple index.
-[[tool.uv.index]]
-name = "private-pypi"
-url = "https://artifact.intuit.com/artifactory/api/pypi/pypi-intuit/simple"
-default = true
 
 # Both Mac architectures are supported, so the lock file must carry a
 # resolution for each. uv otherwise resolves only for the machine that ran
