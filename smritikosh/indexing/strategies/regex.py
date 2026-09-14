@@ -45,9 +45,19 @@ class RegexChunkingStrategy:
                 continue
             start_line = content[:start_pos].count("\n") + 1
             end_line = max(content[:end_pos].count("\n"), start_line)
+            # The boundary the split matched is the section's own header —
+            # "[tool.ruff]" in a TOML file — which is the nearest thing a
+            # regex-chunked file has to a symbol name.
+            header = section.lstrip().splitlines()[0].strip()
             chunks.extend(
                 make_text_chunks(
-                    parsed, section, "regex", start_line, end_line, self.max_chars
+                    parsed,
+                    section,
+                    "regex",
+                    start_line,
+                    end_line,
+                    self.max_chars,
+                    header or None,
                 )
             )
 

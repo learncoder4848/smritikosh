@@ -2,98 +2,65 @@
 
 from __future__ import annotations
 
-import json
 import time
 from dataclasses import asdict
 from typing import Final, cast
 
 import click
+import toons
 
 from smritikosh.adapters.embedder import make_embedder
 from smritikosh.constants import DEFAULT_DB_PATH
-from smritikosh.exploration import IndexedChunk, ReadOnlyExplorer, SearchOptions
+from smritikosh.exploration import (
+    IndexedChunk,
+    OutlineEntry,
+    ReadOnlyExplorer,
+    SearchOptions,
+    SourceLine,
+    TextMatch,
+)
 from smritikosh.models import SearchResult
 
 __all__ = ["explore"]
 
 TOOL_MANIFEST: Final[dict[str, object]] = {
-    "version": 1,
-    "workflow": [
-        "Use search first for conceptual code discovery.",
-        "Use chunks to inspect the strongest production result.",
-        "Use text to resolve exact symbols or constants.",
-        "Use paths when only part of a filename is known.",
-        "Use info only to verify index availability or size.",
-    ],
-    "tools": [
-        {
-            "name": "search",
-            "purpose": "Find indexed code by meaning.",
-            "command": "smritikosh explore search QUERY...",
-            "arguments": {
-                "queries": "One or more natural-language queries.",
-                "top_k": "Maximum number of merged results.",
-                "include_path": "Optional SQL LIKE path patterns.",
-                "exclude_path": "Optional SQL LIKE path patterns to exclude.",
-                "db_path": "Path to the Smritikosh DuckDB index.",
-            },
-            "loads_model": True,
-            "next_steps": ["chunks", "text"],
-        },
-        {
-            "name": "chunks",
-            "purpose": "Retrieve indexed code from one exact path.",
-            "command": "smritikosh explore chunks PATH",
-            "arguments": {
-                "path": "Exact indexed source path.",
-                "start_line": "Optional first overlapping source line.",
-                "end_line": "Optional last overlapping source line.",
-                "db_path": "Path to the Smritikosh DuckDB index.",
-            },
-            "loads_model": False,
-            "next_steps": ["text"],
-        },
-        {
-            "name": "text",
-            "purpose": "Find an exact symbol or phrase in indexed chunks.",
-            "command": "smritikosh explore text TEXT",
-            "arguments": {
-                "text": "Case-insensitive text to locate.",
-                "path": "Optional exact indexed source path.",
-                "limit": "Maximum number of matching chunks.",
-                "db_path": "Path to the Smritikosh DuckDB index.",
-            },
-            "loads_model": False,
-            "next_steps": ["chunks"],
-        },
-        {
-            "name": "paths",
-            "purpose": "Find indexed paths containing a substring.",
-            "command": "smritikosh explore paths PATTERN",
-            "arguments": {
-                "pattern": "Case-insensitive path substring.",
-                "limit": "Maximum number of matching paths.",
-                "db_path": "Path to the Smritikosh DuckDB index.",
-            },
-            "loads_model": False,
-            "next_steps": ["chunks", "text"],
-        },
-        {
-            "name": "info",
-            "purpose": "Report index size and embedding dimensions.",
-            "command": "smritikosh explore info",
-            "arguments": {
-                "db_path": "Path to the Smritikosh DuckDB index.",
-            },
-            "loads_model": False,
-            "next_steps": ["search"],
-        },
-    ],
+    "version": 2,
+    "flow": (
+        "search returns locations; read one with "
+        "chunks PATH --start-line N --end-line M. Two calls answer most "
+        "questions."
+    ),
+    # One line per tool: the manifest is read by an agent on every session, so
+    # its own size is a cost, and nested argument tables cost more than they
+    # explain about a command whose usage string already names its options.
+    "tools": {
+        "search": (
+            "explore search QUERY... [--top-k N] [--include-path LIKE] "
+            "[--exclude-path LIKE] [--full] — code by meaning; reports "
+            "locations, not code; loads the embedding model"
+        ),
+        "chunks": (
+            "explore chunks PATH [--start-line N] [--end-line M] [--full] — "
+            "outline a file, or print its source for a line range"
+        ),
+        "text": (
+            "explore text TEXT [--path PATH] [--limit N] — exact symbol or "
+            "string, as path:line: line"
+        ),
+        "paths": "explore paths PATTERN [--limit N] — paths containing a substring",
+        "info": "explore info — index size and embedding dimensions",
+    },
+    "notes": (
+        "Prefix every command with `smritikosh `. Output is TOON; --prose "
+        "switches to prose. All but tools take --db-path INDEX. Source "
+        "lines print as numbered text either way."
+    ),
 }
 
 
-def _echo_json(value: object) -> None:
-    click.echo(json.dumps(value, indent=2))
+def _echo_toon(value: object) -> None:
+    """Emit TOON — a declared schema for roughly half of JSON's tokens."""
+    click.echo(toons.dumps(value))
 
 
 def _echo_chunks(chunks: list[IndexedChunk]) -> None:
@@ -108,20 +75,79 @@ def _echo_chunks(chunks: list[IndexedChunk]) -> None:
         click.echo()
 
 
-def _echo_results(results: list[SearchResult], *, elapsed_ms: float) -> None:
+def _echo_outline(entries: list[OutlineEntry], *, path: str) -> None:
+    if not entries:
+        click.echo("Nothing indexed for that path.")
+        return
+    click.echo(f"{path}  ({len(entries)} entries)")
+    width: int = max(len(f"{e.start_line}-{e.end_line}") for e in entries)
+    for entry in entries:
+        span: str = f"{entry.start_line}-{entry.end_line}"
+        kind: str = entry.chunk_kind or "chunk"
+        name: str = entry.symbol or "-"
+        click.echo(f"{span:<{width}}  {kind}  {name}")
+
+
+def _echo_text_matches(matches: list[TextMatch]) -> None:
+    if not matches:
+        click.echo("No matches found.")
+        return
+    for match in matches:
+        # "~" warns that the line sits somewhere in a chunk that cannot be
+        # mapped line by line, so the number is the chunk's start, not the hit.
+        marker: str = "" if match.exact_line else "~"
+        click.echo(f"{match.path}:{marker}{match.line_number}: {match.text}")
+
+
+def _echo_source_lines(lines: list[SourceLine], *, path: str) -> None:
+    if not lines:
+        click.echo("No source lines found.")
+        return
+    click.echo(f"{path}:{lines[0].line_number}-{lines[-1].line_number}")
+    width: int = len(str(lines[-1].line_number))
+    for line in lines:
+        click.echo(f"{line.line_number:>{width}}  {line.text}")
+
+
+def _result_payload(result: SearchResult, *, full: bool) -> dict[str, object]:
+    """Serialize one hit, carrying its code only when it was asked for."""
+    payload: dict[str, object] = asdict(result)
+    # Cosine scores separate hits in the third decimal at most; the float's
+    # remaining sixteen digits are tokens spent on noise.
+    payload["score"] = round(result.score, 3)
+    if not full:
+        del payload["snippet"]
+    return payload
+
+
+def _echo_location(result: SearchResult) -> None:
+    kind: str = f"  {result.chunk_kind}" if result.chunk_kind else ""
+    symbol: str = f"  {result.symbol}" if result.symbol else ""
+    click.echo(
+        f"{result.path}:{result.start_line}-{result.end_line}  "
+        f"{result.score:.3f}{kind}{symbol}"
+    )
+
+
+def _echo_results(
+    results: list[SearchResult],
+    *,
+    elapsed_ms: float,
+    full: bool,
+) -> None:
     if not results:
         click.echo(f"No results found.  ({elapsed_ms:.0f} ms)")
         return
     click.echo(f"Found {len(results)} result(s) in {elapsed_ms:.0f} ms:\n")
     for result in results:
-        kind: str = f"  [{result.chunk_kind}]" if result.chunk_kind else ""
-        click.echo(
-            f"{result.path}:{result.start_line}-{result.end_line}  "
-            f"score={result.score:.3f}{kind}"
-        )
-        for line in result.snippet.splitlines():
-            click.echo(f"    {line}")
-        click.echo()
+        _echo_location(result)
+        # Code is what `chunks --start-line` is for. Shipping it with every
+        # hit was three quarters of a search result, and a caller that means
+        # to read one of them pays for the other four.
+        if full:
+            for line in result.snippet.splitlines():
+                click.echo(f"    {line}")
+            click.echo()
 
 
 @click.group()
@@ -131,22 +157,30 @@ def explore() -> None:
 
 @explore.command("tools")
 @click.option(
+    "--prose",
+    is_flag=True,
+    help="Print prose for a human instead of the default TOON rows.",
+)
+@click.option(
+    # Accepted and ignored: TOON is the default now, but these names are
+    # written into agent prompts that predate it, and failing those with
+    # "no such option" costs a whole turn to rediscover an unchanged command.
+    "--toon",
     "--json-output",
     "--json_output",
     is_flag=True,
-    help="Emit machine-readable JSON.",
+    hidden=True,
 )
-def list_tools(json_output: bool) -> None:
+def list_tools(prose: bool, toon: bool) -> None:  # noqa: ARG001
     """Describe exploration commands and the recommended agent workflow."""
-    if json_output:
-        _echo_json(TOOL_MANIFEST)
+    if not prose:
+        _echo_toon(TOOL_MANIFEST)
         return
-    tools: list[dict[str, object]] = cast(
-        list[dict[str, object]], TOOL_MANIFEST["tools"]
-    )
-    for tool in tools:
-        click.echo(f"{tool['name']}: {tool['purpose']}")
-        click.echo(f"  {tool['command']}")
+    click.echo(f"{TOOL_MANIFEST['flow']}\n")
+    tools: dict[str, str] = cast(dict[str, str], TOOL_MANIFEST["tools"])
+    for name, usage in tools.items():
+        click.echo(f"{name}: smritikosh {usage}")
+    click.echo(f"\n{TOOL_MANIFEST['notes']}")
 
 
 @explore.command("info")
@@ -158,17 +192,26 @@ def list_tools(json_output: bool) -> None:
     type=click.Path(exists=True, dir_okay=False),
 )
 @click.option(
+    "--prose",
+    is_flag=True,
+    help="Print prose for a human instead of the default TOON rows.",
+)
+@click.option(
+    # Accepted and ignored: TOON is the default now, but these names are
+    # written into agent prompts that predate it, and failing those with
+    # "no such option" costs a whole turn to rediscover an unchanged command.
+    "--toon",
     "--json-output",
     "--json_output",
     is_flag=True,
-    help="Emit machine-readable JSON.",
+    hidden=True,
 )
-def index_info(db_path: str, json_output: bool) -> None:
+def index_info(db_path: str, prose: bool, toon: bool) -> None:  # noqa: ARG001
     """Show indexed file, chunk, vector, and dimension counts."""
     with ReadOnlyExplorer(db_path) as explorer:
         info = explorer.index_info()
-    if json_output:
-        _echo_json(asdict(info))
+    if not prose:
+        _echo_toon(asdict(info))
         return
     click.echo(
         f"files={info.files} chunks={info.chunks} "
@@ -198,6 +241,11 @@ def index_info(db_path: str, json_output: bool) -> None:
     help="SQL LIKE path pattern to exclude; repeat for multiple constraints.",
 )
 @click.option(
+    "--full",
+    is_flag=True,
+    help="Include the matching code with every result.",
+)
+@click.option(
     "--db-path",
     "--db_path",
     default=DEFAULT_DB_PATH,
@@ -205,18 +253,29 @@ def index_info(db_path: str, json_output: bool) -> None:
     type=click.Path(exists=True, dir_okay=False),
 )
 @click.option(
+    "--prose",
+    is_flag=True,
+    help="Print prose for a human instead of the default TOON rows.",
+)
+@click.option(
+    # Accepted and ignored: TOON is the default now, but these names are
+    # written into agent prompts that predate it, and failing those with
+    # "no such option" costs a whole turn to rediscover an unchanged command.
+    "--toon",
     "--json-output",
     "--json_output",
     is_flag=True,
-    help="Emit machine-readable JSON.",
+    hidden=True,
 )
 def semantic_search(
     queries: tuple[str, ...],
     top_k: int,
     include_path: tuple[str, ...],
     exclude_path: tuple[str, ...],
+    full: bool,
     db_path: str,
-    json_output: bool,
+    prose: bool,
+    toon: bool,  # noqa: ARG001
 ) -> None:
     """Search semantically; pass multiple QUERY values to merge their rankings."""
     options = SearchOptions(
@@ -232,10 +291,10 @@ def semantic_search(
             options=options,
         )
     elapsed_ms: float = (time.perf_counter() - started_at) * 1000
-    if json_output:
-        _echo_json([asdict(result) for result in results])
+    if not prose:
+        _echo_toon([_result_payload(result, full=full) for result in results])
         return
-    _echo_results(results, elapsed_ms=elapsed_ms)
+    _echo_results(results, elapsed_ms=elapsed_ms, full=full)
 
 
 @explore.command("paths")
@@ -249,17 +308,32 @@ def semantic_search(
     type=click.Path(exists=True, dir_okay=False),
 )
 @click.option(
+    "--prose",
+    is_flag=True,
+    help="Print prose for a human instead of the default TOON rows.",
+)
+@click.option(
+    # Accepted and ignored: TOON is the default now, but these names are
+    # written into agent prompts that predate it, and failing those with
+    # "no such option" costs a whole turn to rediscover an unchanged command.
+    "--toon",
     "--json-output",
     "--json_output",
     is_flag=True,
-    help="Emit machine-readable JSON.",
+    hidden=True,
 )
-def find_paths(pattern: str, limit: int, db_path: str, json_output: bool) -> None:
+def find_paths(
+    pattern: str,
+    limit: int,
+    db_path: str,
+    prose: bool,
+    toon: bool,  # noqa: ARG001
+) -> None:
     """Find indexed paths containing PATTERN."""
     with ReadOnlyExplorer(db_path) as explorer:
         paths: list[str] = explorer.find_paths(pattern, limit=limit)
-    if json_output:
-        _echo_json(paths)
+    if not prose:
+        _echo_toon(paths)
         return
     click.echo("\n".join(paths) if paths else "No paths found.")
 
@@ -276,35 +350,50 @@ def find_paths(pattern: str, limit: int, db_path: str, json_output: bool) -> Non
     type=click.Path(exists=True, dir_okay=False),
 )
 @click.option(
+    "--prose",
+    is_flag=True,
+    help="Print prose for a human instead of the default TOON rows.",
+)
+@click.option(
+    # Accepted and ignored: TOON is the default now, but these names are
+    # written into agent prompts that predate it, and failing those with
+    # "no such option" costs a whole turn to rediscover an unchanged command.
+    "--toon",
     "--json-output",
     "--json_output",
     is_flag=True,
-    help="Emit machine-readable JSON.",
+    hidden=True,
 )
 def text_search(
     text: str,
     path: str | None,
     limit: int,
     db_path: str,
-    json_output: bool,
+    prose: bool,
+    toon: bool,  # noqa: ARG001
 ) -> None:
-    """Find indexed chunks containing TEXT."""
+    """Find the indexed source lines containing TEXT."""
     with ReadOnlyExplorer(db_path) as explorer:
-        chunks: list[IndexedChunk] = explorer.text_search(
+        matches: list[TextMatch] = explorer.find_text_lines(
             text,
             path=path,
             limit=limit,
         )
-    if json_output:
-        _echo_json([asdict(chunk) for chunk in chunks])
+    if not prose:
+        _echo_toon([asdict(match) for match in matches])
         return
-    _echo_chunks(chunks)
+    _echo_text_matches(matches)
 
 
 @explore.command("chunks")
 @click.argument("path")
 @click.option("--start-line", "--start_line", type=click.IntRange(min=1))
 @click.option("--end-line", "--end_line", type=click.IntRange(min=1))
+@click.option(
+    "--full",
+    is_flag=True,
+    help="Print every stored chunk in full instead of an outline.",
+)
 @click.option(
     "--db-path",
     "--db_path",
@@ -313,29 +402,64 @@ def text_search(
     type=click.Path(exists=True, dir_okay=False),
 )
 @click.option(
+    "--prose",
+    is_flag=True,
+    help="Print prose for a human instead of the default TOON rows.",
+)
+@click.option(
+    # Accepted and ignored: TOON is the default now, but these names are
+    # written into agent prompts that predate it, and failing those with
+    # "no such option" costs a whole turn to rediscover an unchanged command.
+    "--toon",
     "--json-output",
     "--json_output",
     is_flag=True,
-    help="Emit machine-readable JSON.",
+    hidden=True,
 )
 def get_chunks(
     path: str,
     start_line: int | None,
     end_line: int | None,
+    full: bool,
     db_path: str,
-    json_output: bool,
+    prose: bool,
+    toon: bool,  # noqa: ARG001
 ) -> None:
-    """Retrieve chunks from an exact indexed PATH."""
+    """Retrieve indexed code from an exact PATH.
+
+    With a line range, the requested source is rebuilt once and printed with
+    line numbers. Without one, the path's definitions are listed as an
+    outline; pass --full to print every stored chunk instead.
+
+    Source lines always print as numbered text. TOON must quote any value
+    holding a colon, and code is full of them, so a table of lines costs
+    more than the numbered text it would replace and reads worse.
+    """
+    ranged: bool = start_line is not None or end_line is not None
     try:
         with ReadOnlyExplorer(db_path) as explorer:
-            chunks: list[IndexedChunk] = explorer.get_chunks(
-                path,
-                start_line=start_line,
-                end_line=end_line,
-            )
+            if ranged:
+                lines: list[SourceLine] = explorer.get_source_lines(
+                    path,
+                    start_line=start_line,
+                    end_line=end_line,
+                )
+            elif full:
+                chunks: list[IndexedChunk] = explorer.get_chunks(path)
+            else:
+                entries: list[OutlineEntry] = explorer.get_outline(path)
     except ValueError as exc:
         raise click.ClickException(str(exc)) from exc
-    if json_output:
-        _echo_json([asdict(chunk) for chunk in chunks])
+    if ranged:
+        _echo_source_lines(lines, path=path)
         return
-    _echo_chunks(chunks)
+    if full:
+        if not prose:
+            _echo_toon([asdict(chunk) for chunk in chunks])
+            return
+        _echo_chunks(chunks)
+        return
+    if not prose:
+        _echo_toon([asdict(entry) for entry in entries])
+        return
+    _echo_outline(entries, path=path)

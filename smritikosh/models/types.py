@@ -61,6 +61,9 @@ class Chunk:
     text: str
     chunk_kind: str
     content_hash: str
+    #: Name of the definition this chunk came from, when the chunker knew one.
+    #: A grouped or whole-file chunk covers no single definition and has None.
+    symbol: str | None = None
 
 
 @dataclass
@@ -73,6 +76,7 @@ class SearchResult:
     snippet: str
     score: float
     chunk_kind: str | None = None
+    symbol: str | None = None
 
 
 class ChunkingStrategy(Protocol):

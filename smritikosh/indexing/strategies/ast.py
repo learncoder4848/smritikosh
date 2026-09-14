@@ -117,7 +117,9 @@ def _apply_grouping(
 
         elif action in ("whole", "own"):
             kind = cap.capture_name.split(".")[-1]
-            chunks.extend(make_node_chunks(parsed, cap.node, kind, raw, max_chars))
+            chunks.extend(
+                make_node_chunks(parsed, cap.node, kind, raw, max_chars, cap.name)
+            )
             skip.add(cap.node.id)
 
         elif action == "with_init":
@@ -134,11 +136,13 @@ def _apply_grouping(
                 end_line = max(cap.node.end_point[0], init_cap.node.end_point[0]) + 1
                 chunks.extend(
                     make_text_chunks(
-                        parsed, text, kind, start_line, end_line, max_chars
+                        parsed, text, kind, start_line, end_line, max_chars, cap.name
                     )
                 )
             else:
-                chunks.extend(make_node_chunks(parsed, cap.node, kind, raw, max_chars))
+                chunks.extend(
+                    make_node_chunks(parsed, cap.node, kind, raw, max_chars, cap.name)
+                )
             skip.add(cap.node.id)
 
     for capture_name, nodes in group_buckets.items():

@@ -41,8 +41,7 @@ def _contains(outer: TreeSitterNode, inner: TreeSitterNode) -> bool:
         inner.start_byte >= outer.start_byte
         and inner.end_byte <= outer.end_byte
         # Strictly smaller, so a node never counts as containing itself.
-        and (inner.end_byte - inner.start_byte)
-        < (outer.end_byte - outer.start_byte)
+        and (inner.end_byte - inner.start_byte) < (outer.end_byte - outer.start_byte)
     )
 
 
@@ -214,6 +213,7 @@ class SectionChunkingStrategy:
                         first_line,
                         last_node.end_point[0] + 1,
                         self.max_chars,
+                        cap.name or None,
                     )
                 )
                 continue
@@ -224,9 +224,7 @@ class SectionChunkingStrategy:
             # unlabelled — the exact degenerate fragment this work removes.
             prefix = f"{_PATH_MARKER}{path}\n"
             budget = (
-                None
-                if self.max_chars is None
-                else max(self.max_chars - len(prefix), 1)
+                None if self.max_chars is None else max(self.max_chars - len(prefix), 1)
             )
             windows = (
                 split_oversized(body, budget) if budget is not None else [(body, 0, 0)]
@@ -239,6 +237,7 @@ class SectionChunkingStrategy:
                         "section",
                         first_line + first,
                         first_line + last,
+                        path,
                     )
                 )
         return chunks

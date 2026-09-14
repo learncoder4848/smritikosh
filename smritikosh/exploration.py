@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
@@ -18,11 +18,24 @@ if TYPE_CHECKING:
 __all__ = [
     "IndexInfo",
     "IndexedChunk",
+    "OutlineEntry",
     "ReadOnlyExplorer",
     "SearchOptions",
+    "SourceLine",
+    "TextMatch",
 ]
 
 _NON_PRODUCTION_PATH_PENALTY: Final[float] = 0.8
+
+#: A hit is dropped when a better-scoring hit already covers this much of it.
+#: Half is deliberately permissive: the overlaps worth removing are windows of
+#: one definition, which repeat far more than half of each other, while two
+#: genuinely different definitions in one file share no lines at all.
+_OVERLAP_DROP_FRACTION: Final[float] = 0.5
+
+#: Candidates fetched per requested result, so that dropping repeats still
+#: leaves a full page of answers.
+_OVERFETCH: Final[int] = 3
 _TEST_INTENT_PATTERN: Final[re.Pattern[str]] = re.compile(
     r"(?<!\w)(?:tests?|testing|pytest|unittest|specs?)(?!\w)",
     re.IGNORECASE,
@@ -66,6 +79,37 @@ class IndexedChunk:
     end_line: int
     text: str
     chunk_kind: str | None
+    #: Definition this chunk came from; None for chunks that cover no single
+    #: definition, and for chunks written before symbols were recorded.
+    symbol: str | None = None
+
+
+@dataclass(frozen=True)
+class SourceLine:
+    """Represent one source line rebuilt from the indexed chunks."""
+
+    line_number: int
+    text: str
+
+
+@dataclass(frozen=True)
+class OutlineEntry:
+    """Summarize one definition stored for a path."""
+
+    symbol: str | None
+    chunk_kind: str | None
+    start_line: int
+    end_line: int
+
+
+@dataclass(frozen=True)
+class TextMatch:
+    """Locate one source line that contains the searched text."""
+
+    path: str
+    line_number: int
+    text: str
+    exact_line: bool
 
 
 @dataclass(frozen=True)
@@ -182,8 +226,8 @@ class ReadOnlyExplorer:
                 if previous is None or score > previous[0]:
                     hits[chunk.chunk_id] = (score, chunk)
 
-        ranked: list[tuple[float, IndexedChunk]] = sorted(
-            hits.values(), key=lambda hit: hit[0], reverse=True
+        ranked: list[tuple[float, IndexedChunk]] = self._drop_repeats(
+            sorted(hits.values(), key=lambda hit: hit[0], reverse=True)
         )
         return [
             SearchResult(
@@ -193,6 +237,7 @@ class ReadOnlyExplorer:
                 snippet=chunk.text,
                 score=score,
                 chunk_kind=chunk.chunk_kind,
+                symbol=chunk.symbol,
             )
             for score, chunk in ranked[: options.top_k]
         ]
@@ -243,9 +288,9 @@ class ReadOnlyExplorer:
         if path is not None:
             parameters.append(path)
         parameters.append(limit)
-        rows: list[tuple[str, str, str]] = self._connection.execute(
+        rows: list[tuple[str, str | None, str, str]] = self._connection.execute(
             f"""
-            SELECT id, path, metadata
+            SELECT id, name, path, metadata
             FROM nodes
             WHERE kind = 'chunk'
               AND contains(lower(json_extract_string(metadata, '$.text')), lower(?))
@@ -256,6 +301,49 @@ class ReadOnlyExplorer:
             parameters,
         ).fetchall()
         return [self._to_chunk(row) for row in rows]
+
+    def find_text_lines(
+        self,
+        text: str,
+        *,
+        path: str | None = None,
+        limit: int = 20,
+    ) -> list[TextMatch]:
+        """Find the individual source lines containing exact text.
+
+        Args:
+            text: Text or symbol name to locate.
+            path: Optional exact indexed path.
+            limit: Maximum number of matching lines to return.
+
+        Returns:
+            Matching lines ordered by path and source line, each returned once
+            however many overlapping chunks stored it.
+        """
+        self._validate_limit(limit)
+        needle: str = text.lower()
+        matches: dict[tuple[str, int, str], TextMatch] = {}
+        for chunk in self.text_search(text, path=path, limit=limit):
+            chunk_lines: list[str] = chunk.text.split("\n")
+            # A grouped chunk concatenates definitions that are not adjacent in
+            # the file, so its text does not line up with the lines it claims.
+            # Its start line is then the closest honest anchor available.
+            aligned: bool = len(chunk_lines) == chunk.end_line - chunk.start_line + 1
+            for offset, line in enumerate(chunk_lines):
+                if needle not in line.lower():
+                    continue
+                number: int = chunk.start_line + offset if aligned else chunk.start_line
+                match = TextMatch(
+                    path=chunk.path,
+                    line_number=number,
+                    text=line.strip(),
+                    exact_line=aligned,
+                )
+                matches.setdefault((match.path, match.line_number, match.text), match)
+        ordered: list[TextMatch] = sorted(
+            matches.values(), key=lambda match: (match.path, match.line_number)
+        )
+        return ordered[:limit]
 
     def get_chunks(
         self,
@@ -290,9 +378,9 @@ class ReadOnlyExplorer:
             )
             parameters.append(end_line)
         where_clause: str = " AND ".join(clauses)
-        rows: list[tuple[str, str, str]] = self._connection.execute(
+        rows: list[tuple[str, str | None, str, str]] = self._connection.execute(
             f"""
-            SELECT id, path, metadata
+            SELECT id, name, path, metadata
             FROM nodes
             WHERE {where_clause}
             ORDER BY CAST(json_extract(metadata, '$.start_line') AS INTEGER)
@@ -300,6 +388,95 @@ class ReadOnlyExplorer:
             parameters,
         ).fetchall()
         return [self._to_chunk(row) for row in rows]
+
+    def get_outline(self, path: str) -> list[OutlineEntry]:
+        """List what one indexed path defines, without any of its source.
+
+        An oversized definition is stored as several windows; they share a
+        symbol, so consecutive windows of one definition collapse back into
+        the single entry the reader expects.
+
+        Args:
+            path: Exact indexed source path.
+
+        Returns:
+            One entry per definition, in source order.
+        """
+        entries: list[OutlineEntry] = []
+        for chunk in self.get_chunks(path):
+            previous: OutlineEntry | None = entries[-1] if entries else None
+            same_definition: bool = (
+                previous is not None
+                and chunk.symbol is not None
+                and previous.symbol == chunk.symbol
+                and previous.chunk_kind == chunk.chunk_kind
+            )
+            if same_definition and previous is not None:
+                entries[-1] = replace(
+                    previous, end_line=max(previous.end_line, chunk.end_line)
+                )
+                continue
+            entries.append(
+                OutlineEntry(
+                    symbol=chunk.symbol,
+                    chunk_kind=chunk.chunk_kind,
+                    start_line=chunk.start_line,
+                    end_line=chunk.end_line,
+                )
+            )
+        return entries
+
+    def get_source_lines(
+        self,
+        path: str,
+        *,
+        start_line: int | None = None,
+        end_line: int | None = None,
+    ) -> list[SourceLine]:
+        """Rebuild the source of one path from its chunks, line by line.
+
+        Chunks overlap, so the same source line is stored several times over.
+        Merging them by line number returns each line once, in source order,
+        instead of the repeated windows ``get_chunks`` yields.
+
+        A chunk whose text does not span exactly the lines it claims — a
+        grouped chunk concatenates definitions that are not adjacent in the
+        file — cannot be mapped back onto line numbers and is skipped, so the
+        rebuilt range can have gaps.
+
+        Args:
+            path: Exact indexed source path.
+            start_line: Optional first line of the desired range.
+            end_line: Optional last line of the desired range.
+
+        Returns:
+            Distinct source lines in ascending line order.
+
+        Raises:
+            ValueError: If a supplied line number is not positive or the range
+                is reversed.
+        """
+        chunks: list[IndexedChunk] = self.get_chunks(
+            path,
+            start_line=start_line,
+            end_line=end_line,
+        )
+        lines: dict[int, str] = {}
+        for chunk in chunks:
+            chunk_lines: list[str] = chunk.text.split("\n")
+            if len(chunk_lines) != chunk.end_line - chunk.start_line + 1:
+                continue
+            for offset, text in enumerate(chunk_lines):
+                number: int = chunk.start_line + offset
+                if start_line is not None and number < start_line:
+                    continue
+                if end_line is not None and number > end_line:
+                    continue
+                lines[number] = text
+        return [
+            SourceLine(line_number=number, text=lines[number])
+            for number in sorted(lines)
+        ]
 
     def _search_vector(
         self,
@@ -322,16 +499,52 @@ class ReadOnlyExplorer:
             clauses.append("n.path NOT LIKE ?")
             parameters.append(pattern)
         parameters.extend([test_path_penalty, documentation_path_penalty])
-        parameters.append(options.top_k)
+        parameters.append(options.top_k * _OVERFETCH)
         where_clause: str = " AND ".join(clauses)
-        rows: list[tuple[str, str, str, float]] = self._connection.execute(
+        rows: list[tuple[str, str | None, str, str, float]] = self._connection.execute(
             self._vector_search_sql(
                 dimensions=dimensions,
                 where_clause=where_clause,
             ),
             parameters,
         ).fetchall()
-        return [(row[3], self._to_chunk(row[:3])) for row in rows]
+        return [(row[4], self._to_chunk(row[:4])) for row in rows]
+
+    @staticmethod
+    def _drop_repeats(
+        ranked: list[tuple[float, IndexedChunk]],
+    ) -> list[tuple[float, IndexedChunk]]:
+        """Remove hits that mostly repeat the lines of a better-scoring hit.
+
+        Chunks overlap by design — a class chunk contains its methods, and an
+        oversized definition is stored as overlapping windows — so one region
+        of one file can fill a result page several times over.
+
+        The test is what fraction of the candidate's own lines a kept hit
+        already covers, not whether one contains the other: sibling windows
+        share a seam without either containing the other, which is why
+        containment never fires on them.
+        """
+        kept: list[tuple[float, IndexedChunk]] = []
+        for score, chunk in ranked:
+            span: int = chunk.end_line - chunk.start_line + 1
+            repeats: bool = any(
+                other.path == chunk.path
+                and (
+                    max(
+                        0,
+                        min(other.end_line, chunk.end_line)
+                        - max(other.start_line, chunk.start_line)
+                        + 1,
+                    )
+                    / span
+                )
+                >= _OVERLAP_DROP_FRACTION
+                for _, other in kept
+            )
+            if not repeats:
+                kept.append((score, chunk))
+        return kept
 
     @staticmethod
     def _path_penalty(query: str, *, intent_pattern: re.Pattern[str]) -> float:
@@ -345,7 +558,7 @@ class ReadOnlyExplorer:
         """Build the vector query with production-first score adjustments."""
         return f"""
             WITH candidates AS (
-                SELECT n.id, n.path, n.metadata,
+                SELECT n.id, n.name, n.path, n.metadata,
                        array_cosine_similarity(
                            v.vector, ?::FLOAT[{dimensions}]
                        ) AS raw_score
@@ -353,7 +566,7 @@ class ReadOnlyExplorer:
                 JOIN nodes AS n ON n.id = v.chunk_id
                 WHERE {where_clause}
             )
-            SELECT id, path, metadata,
+            SELECT id, name, path, metadata,
                    CASE
                        WHEN ({_TEST_PATH_SQL})
                        THEN raw_score - ((1.0 - ?) * abs(raw_score))
@@ -367,11 +580,13 @@ class ReadOnlyExplorer:
         """  # noqa: S608
 
     @staticmethod
-    def _to_chunk(row: tuple[str, str, str]) -> IndexedChunk:
-        metadata: dict[str, object] = json.loads(row[2])
+    def _to_chunk(row: tuple[str, str | None, str, str]) -> IndexedChunk:
+        """Build a chunk from an ``(id, name, path, metadata)`` row."""
+        metadata: dict[str, object] = json.loads(row[3])
         return IndexedChunk(
             chunk_id=row[0],
-            path=row[1],
+            symbol=row[1],
+            path=row[2],
             start_line=int(metadata["start_line"]),
             end_line=int(metadata["end_line"]),
             text=str(metadata["text"]),

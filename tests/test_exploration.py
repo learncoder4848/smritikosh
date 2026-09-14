@@ -28,6 +28,59 @@ class _StubEmbedder:
         return [vectors[text] for text in texts]
 
 
+def _make_db(
+    tmp_path: Path,
+    chunks: list[tuple[str, str, int, int, str, str | None]],
+    vectors: dict[str, list[float]] | None = None,
+) -> str:
+    """Write an index of ``(id, path, start, end, text, symbol)`` chunks.
+
+    Pass *vectors* to make the index searchable; without them only the
+    non-semantic reads have anything to work with.
+    """
+    db_path: Path = tmp_path / "chunks.duckdb"
+    connection = duckdb.connect(str(db_path))
+    connection.execute(
+        """
+        CREATE TABLE nodes (
+            id TEXT PRIMARY KEY,
+            kind TEXT,
+            name TEXT,
+            path TEXT,
+            metadata JSON
+        );
+        CREATE TABLE vectors (chunk_id TEXT PRIMARY KEY, vector FLOAT[3]);
+        CREATE TABLE kv_store (key TEXT PRIMARY KEY, value TEXT);
+        INSERT INTO kv_store VALUES ('embedder_dims', '3');
+        """
+    )
+    connection.executemany(
+        "INSERT INTO nodes VALUES (?, 'chunk', ?, ?, ?)",
+        [
+            (
+                chunk_id,
+                symbol,
+                path,
+                json.dumps(
+                    {
+                        "start_line": start,
+                        "end_line": end,
+                        "text": text,
+                        "chunk_kind": "function",
+                    }
+                ),
+            )
+            for chunk_id, path, start, end, text, symbol in chunks
+        ],
+    )
+    if vectors:
+        connection.executemany(
+            "INSERT INTO vectors VALUES (?, ?)", list(vectors.items())
+        )
+    connection.close()
+    return str(db_path)
+
+
 @pytest.fixture()
 def indexed_db(tmp_path: Path) -> str:
     """Create a minimal on-disk index that can be reopened read-only."""
@@ -38,6 +91,7 @@ def indexed_db(tmp_path: Path) -> str:
         CREATE TABLE nodes (
             id TEXT PRIMARY KEY,
             kind TEXT NOT NULL,
+            name TEXT,
             path TEXT,
             metadata JSON
         );
@@ -48,12 +102,13 @@ def indexed_db(tmp_path: Path) -> str:
         CREATE TABLE kv_store (key TEXT PRIMARY KEY, value TEXT);
         """
     )
-    rows: list[tuple[str, str, str, str]] = [
-        ("file:src/billing.py", "file", "src/billing.py", "{}"),
-        ("file:docs/billing.md", "file", "docs/billing.md", "{}"),
+    rows: list[tuple[str, str, str | None, str, str]] = [
+        ("file:src/billing.py", "file", None, "src/billing.py", "{}"),
+        ("file:docs/billing.md", "file", None, "docs/billing.md", "{}"),
         (
             "chunk:implementation",
             "chunk",
+            "eligible_account",
             "src/billing.py",
             json.dumps(
                 {
@@ -67,6 +122,7 @@ def indexed_db(tmp_path: Path) -> str:
         (
             "chunk:test",
             "chunk",
+            "test_eligible_account",
             "tests/test_billing.py",
             json.dumps(
                 {
@@ -80,6 +136,7 @@ def indexed_db(tmp_path: Path) -> str:
         (
             "chunk:documentation",
             "chunk",
+            "Billing eligibility",
             "docs/billing.md",
             json.dumps(
                 {
@@ -91,7 +148,7 @@ def indexed_db(tmp_path: Path) -> str:
             ),
         ),
     ]
-    connection.executemany("INSERT INTO nodes VALUES (?, ?, ?, ?)", rows)
+    connection.executemany("INSERT INTO nodes VALUES (?, ?, ?, ?, ?)", rows)
     connection.executemany(
         "INSERT INTO vectors VALUES (?, ?)",
         [
@@ -219,6 +276,64 @@ def test_should_not_demote_documentation_when_requested_by_query(
     assert [result.path for result in results] == ["docs/billing.md"]
 
 
+def test_should_drop_a_hit_that_mostly_repeats_a_better_one(
+    tmp_path: Path,
+) -> None:
+    # Arrange: two windows of one definition, overlapping on lines 8-12.
+    db_path: str = _make_db(
+        tmp_path,
+        [
+            ("chunk:best", "src/a.py", 1, 12, "first window", "load"),
+            ("chunk:window", "src/a.py", 8, 14, "second window", "load"),
+            ("chunk:other", "src/a.py", 40, 50, "elsewhere", "save"),
+        ],
+        vectors={
+            "chunk:best": [1.0, 0.0, 0.0],
+            "chunk:window": [0.99, 0.14, 0.0],
+            "chunk:other": [0.98, 0.2, 0.0],
+        },
+    )
+    explorer = ReadOnlyExplorer(db_path)
+
+    # Act
+    results = explorer.semantic_search(
+        ["implementation"],
+        embedder=_StubEmbedder(),
+        options=SearchOptions(top_k=3),
+    )
+    explorer.close()
+
+    # Assert
+    assert [(r.start_line, r.end_line) for r in results] == [(1, 12), (40, 50)]
+
+
+def test_should_keep_a_hit_that_only_grazes_a_better_one(tmp_path: Path) -> None:
+    # Arrange: 2 of the candidate's 11 lines are already covered.
+    db_path: str = _make_db(
+        tmp_path,
+        [
+            ("chunk:best", "src/a.py", 1, 12, "first", "load"),
+            ("chunk:next", "src/a.py", 11, 21, "second", "save"),
+        ],
+        vectors={
+            "chunk:best": [1.0, 0.0, 0.0],
+            "chunk:next": [0.99, 0.14, 0.0],
+        },
+    )
+    explorer = ReadOnlyExplorer(db_path)
+
+    # Act
+    results = explorer.semantic_search(
+        ["implementation"],
+        embedder=_StubEmbedder(),
+        options=SearchOptions(top_k=3),
+    )
+    explorer.close()
+
+    # Assert
+    assert [(r.start_line, r.end_line) for r in results] == [(1, 12), (11, 21)]
+
+
 def test_should_find_paths_by_case_insensitive_substring(indexed_db: str) -> None:
     # Arrange
     explorer = ReadOnlyExplorer(indexed_db)
@@ -257,6 +372,139 @@ def test_should_return_chunks_overlapping_requested_lines(indexed_db: str) -> No
 
     # Assert
     assert [chunk.chunk_id for chunk in chunks] == ["chunk:implementation"]
+
+
+def test_should_return_each_matching_line_once_with_its_line_number(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    db_path: str = _make_db(
+        tmp_path,
+        [
+            ("chunk:first", "src/a.py", 1, 3, "import os\nTOTAL = 1\nother", None),
+            ("chunk:second", "src/a.py", 2, 4, "TOTAL = 1\nother\nTOTAL = 2", None),
+        ],
+    )
+    explorer = ReadOnlyExplorer(db_path)
+
+    # Act
+    matches = explorer.find_text_lines("total")
+    explorer.close()
+
+    # Assert
+    assert [(match.line_number, match.text) for match in matches] == [
+        (2, "TOTAL = 1"),
+        (4, "TOTAL = 2"),
+    ]
+    assert all(match.exact_line for match in matches)
+
+
+def test_should_anchor_unmappable_matches_to_their_chunk_start(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    db_path: str = _make_db(
+        tmp_path,
+        [("chunk:grouped", "src/a.py", 5, 40, "RATE = 1\nLIMIT = 2", None)],
+    )
+    explorer = ReadOnlyExplorer(db_path)
+
+    # Act
+    matches = explorer.find_text_lines("LIMIT")
+    explorer.close()
+
+    # Assert
+    assert [(match.line_number, match.exact_line) for match in matches] == [(5, False)]
+
+
+def test_should_collapse_the_windows_of_one_definition_into_one_outline_entry(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    db_path: str = _make_db(
+        tmp_path,
+        [
+            ("chunk:a", "src/a.py", 1, 20, "head", "load"),
+            ("chunk:b", "src/a.py", 19, 40, "tail", "load"),
+            ("chunk:c", "src/a.py", 42, 50, "next", "save"),
+        ],
+    )
+    explorer = ReadOnlyExplorer(db_path)
+
+    # Act
+    entries = explorer.get_outline("src/a.py")
+    explorer.close()
+
+    # Assert
+    assert [(e.symbol, e.start_line, e.end_line) for e in entries] == [
+        ("load", 1, 40),
+        ("save", 42, 50),
+    ]
+
+
+def test_should_keep_unnamed_chunks_apart_in_the_outline(tmp_path: Path) -> None:
+    # Arrange
+    db_path: str = _make_db(
+        tmp_path,
+        [
+            ("chunk:a", "src/a.py", 1, 5, "one", None),
+            ("chunk:b", "src/a.py", 6, 9, "two", None),
+        ],
+    )
+    explorer = ReadOnlyExplorer(db_path)
+
+    # Act
+    entries = explorer.get_outline("src/a.py")
+    explorer.close()
+
+    # Assert
+    assert [(e.start_line, e.end_line) for e in entries] == [(1, 5), (6, 9)]
+
+
+def test_should_rebuild_requested_lines_once_from_overlapping_chunks(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    db_path: str = _make_db(
+        tmp_path,
+        [
+            ("chunk:first", "src/a.py", 1, 3, "one\ntwo\nthree", None),
+            ("chunk:second", "src/a.py", 3, 5, "three\nfour\nfive", None),
+        ],
+    )
+    explorer = ReadOnlyExplorer(db_path)
+
+    # Act
+    lines = explorer.get_source_lines("src/a.py", start_line=2, end_line=4)
+    explorer.close()
+
+    # Assert
+    assert [(line.line_number, line.text) for line in lines] == [
+        (2, "two"),
+        (3, "three"),
+        (4, "four"),
+    ]
+
+
+def test_should_skip_chunks_whose_text_does_not_span_their_lines(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    db_path: str = _make_db(
+        tmp_path,
+        [
+            ("chunk:grouped", "src/a.py", 1, 9, "FIRST = 1\nLAST = 2", None),
+            ("chunk:exact", "src/a.py", 4, 4, "middle", None),
+        ],
+    )
+    explorer = ReadOnlyExplorer(db_path)
+
+    # Act
+    lines = explorer.get_source_lines("src/a.py")
+    explorer.close()
+
+    # Assert
+    assert [(line.line_number, line.text) for line in lines] == [(4, "middle")]
 
 
 def test_should_reject_reversed_line_range(indexed_db: str) -> None:

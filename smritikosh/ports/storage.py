@@ -34,7 +34,8 @@ class StorageAdapter(ABC):
     def get_chunks_by_ids(self, chunk_ids: list[str]) -> list[dict]:
         """Return chunk metadata dicts for the given ids.
 
-        Each dict contains: id, path, start_line, end_line, text, chunk_kind.
+        Each dict contains: id, path, start_line, end_line, text, chunk_kind,
+        symbol.
         """
 
     # -------------------------------------------------------------- file hashes
