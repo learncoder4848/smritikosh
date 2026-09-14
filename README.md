@@ -114,40 +114,62 @@ The `explore` commands expose the indexed repository to agents without reading
 the source tree or taking a DuckDB write lock:
 
 ```bash
-smritikosh explore tools --json-output
+smritikosh explore tools
 
-smritikosh explore info --db-path smritikosh.duckdb --json-output
+smritikosh explore info --db-path smritikosh.duckdb
 
 smritikosh explore search \
   "where is access control enforced" \
   "authorization decision logic" \
   --exclude-path 'tests/%' \
-  --db-path smritikosh.duckdb \
-  --json-output
+  --db-path smritikosh.duckdb
 
 smritikosh explore paths statement_eligibility \
   --db-path smritikosh.duckdb
 
 smritikosh explore chunks core/common/statement_eligibility.py \
-  --db-path smritikosh.duckdb \
-  --json-output
+  --db-path smritikosh.duckdb
+
+smritikosh explore chunks core/common/statement_eligibility.py \
+  --start-line 40 --end-line 52 \
+  --db-path smritikosh.duckdb
 
 smritikosh explore text is_account_eligible \
   --path core/common/statement_eligibility.py \
-  --db-path smritikosh.duckdb \
-  --json-output
+  --db-path smritikosh.duckdb
 ```
 
+The two calls that answer most questions are `search`, which reports where the
+answer lives, and `chunks PATH --start-line N --end-line M`, which prints that
+source with line numbers. Without a line range `chunks` outlines what a file
+defines rather than printing it; `--full` restores the whole-chunk dump, on
+both commands.
+
+Results come back as [TOON](https://toonformat.dev) — a tabular array that
+declares its columns once and then streams one row per hit:
+
+```text
+[2]{path,start_line,end_line,score,chunk_kind,symbol}:
+  core/computation/interest/interest_calculator.py,59,81,0.434,class,InterestCalculator
+  core/computation/interest/interest_adjustment.py,176,193,0.436,method,compute
+```
+
+That costs roughly half of the equivalent JSON. `--prose` switches any command
+to human-readable output. Source lines are exempt: TOON must quote any value
+containing a colon, so a table of code lines costs more than the numbered text
+it would replace, and `chunks` with a line range always prints numbered text.
+
 Multiple semantic queries are embedded in one model call. Results are
-deduplicated and ranked by each chunk's best score across those queries. Path,
-text, and chunk commands do not load the embedding model.
+deduplicated and ranked by each chunk's best score across those queries; a hit
+that mostly repeats the lines of a better-scoring one is dropped. Path, text,
+and chunk commands do not load the embedding model.
 
 `explore tools` returns a machine-readable command manifest and recommended
 workflow. An agent instruction can therefore stay short:
 
 ```text
 Use the Smritikosh exploration CLI instead of Grep for code discovery.
-Run `uv run smritikosh explore tools --json-output` to discover its commands.
+Run `uv run smritikosh explore tools` to discover its commands.
 ```
 
 ## Contributing
