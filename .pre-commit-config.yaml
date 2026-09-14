@@ -1,6 +1,7 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.6
+    # Must match the pinned ruff in pyproject.toml's dev group.
+    rev: v0.16.7
     hooks:
       - id: ruff-check
         args: [--fix]

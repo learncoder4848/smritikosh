@@ -137,7 +137,7 @@ async def test_fan_out_concurrency_limits_simultaneous_tasks():
         nonlocal peak, active
         active += 1
         peak = max(peak, active)
-        await asyncio.sleep(0.01)   # yield so others can start
+        await asyncio.sleep(0.01)  # yield so others can start
         active -= 1
 
     files = [FakeFile(f"{i}.py") for i in range(10)]
@@ -154,7 +154,7 @@ async def test_fan_out_concurrency_one_serialises_execution():
     @sm.tracked
     async def task(f: FakeFile) -> None:
         idx = int(f.path.replace(".py", ""))
-        await asyncio.sleep(0)      # yield to event loop
+        await asyncio.sleep(0)  # yield to event loop
         order.append(idx)
 
     files = [FakeFile(f"{i}.py") for i in range(5)]

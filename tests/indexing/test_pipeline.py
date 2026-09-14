@@ -46,8 +46,10 @@ class _VectorStore:
     def setup(self, dims: int) -> None: ...  # noqa: D401
     def exists(self, chunk_id: str) -> bool:
         return chunk_id in self._store
+
     def upsert(self, chunk_id: str, vector: list[float]) -> None:
         self._store[chunk_id] = vector
+
     def delete(self, chunk_id: str) -> None:
         self._store.pop(chunk_id, None)
 
@@ -64,16 +66,22 @@ class _Storage:
     def upsert_chunk_nodes(self, chunks: list[Chunk]) -> None:
         for c in chunks:
             self._chunks[c.id] = c
+
     def delete_chunk_node(self, chunk_id: str) -> None:
         self._chunks.pop(chunk_id, None)
+
     def get_all_file_paths(self) -> set[str]:
         return set(self._files.keys())
+
     def get_file_hash(self, path: str) -> str | None:
         return self._files.get(path)
+
     def set_file_hash(self, path: str, hash: str) -> None:  # noqa: A002
         self._files[path] = hash
+
     def delete_file(self, path: str) -> None:
         self._files.pop(path, None)
+
     def get_chunks_by_ids(self, chunk_ids: list[str]) -> list[dict[str, Any]]:
         return []
 
@@ -81,8 +89,13 @@ class _Storage:
 def _make_chunk(text: str = "def foo(): pass", path: str = "a.py") -> Chunk:
     h = hashlib.sha256(text.encode()).hexdigest()
     return Chunk(
-        id=h[:16], path=path, start_line=1, end_line=1,
-        text=text, chunk_kind="function", content_hash=h,
+        id=h[:16],
+        path=path,
+        start_line=1,
+        end_line=1,
+        text=text,
+        chunk_kind="function",
+        content_hash=h,
     )
 
 
@@ -91,9 +104,13 @@ def _make_source(
     path: str = "a.py",
 ) -> SourceFile:
     from smritikosh.indexing.strategies.section import SectionChunkingStrategy
+
     return SourceFile(
-        path=path, language="python", content=content,
-        has_tags_scm=False, strategy=SectionChunkingStrategy(),
+        path=path,
+        language="python",
+        content=content,
+        has_tags_scm=False,
+        strategy=SectionChunkingStrategy(),
     )
 
 
@@ -144,8 +161,8 @@ async def test_embed_one_groups_similar_lengths_together() -> None:
     import asyncio
 
     embedder = _EchoEmbedder()
-    tiny = list(range(1, 9))             # 1..8 chars
-    huge = list(range(901, 909))         # 901..908 chars
+    tiny = list(range(1, 9))  # 1..8 chars
+    huge = list(range(901, 909))  # 901..908 chars
     texts = ["x" * n for n in (tiny + huge)]
 
     with PipelineContext() as ctx:

@@ -159,7 +159,7 @@ def test_index_full_clears_caches_before_build(runner, repo, db_path) -> None:
         patch("smritikosh.cli._open_stores", return_value=(storage, vector_store)),
         patch(
             "smritikosh.indexing.pipeline.build_index",
-                side_effect=lambda *_, **__: call_order.append("build"),
+            side_effect=lambda *_, **__: call_order.append("build"),
         ),
     ):
         result = runner.invoke(main, ["index", repo, "--db-path", db_path, "--full"])

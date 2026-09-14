@@ -1,6 +1,5 @@
 """Tests for @sm.memoized and @sm.tracked."""
 
-
 import smritikosh.engine._memo as _memo_module
 from smritikosh.engine import PipelineContext, sm
 

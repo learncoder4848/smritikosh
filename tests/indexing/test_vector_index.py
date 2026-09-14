@@ -27,24 +27,28 @@ class _VectorStore:
 
 class _Storage:
     def __init__(self, rows: list[dict[str, Any]] | None = None) -> None:
-        self._rows = rows if rows is not None else [
-            {
-                "id": "c1",
-                "path": "src/foo.py",
-                "start_line": 1,
-                "end_line": 5,
-                "text": "def foo(): pass",
-                "chunk_kind": "function",
-            },
-            {
-                "id": "c2",
-                "path": "src/bar.py",
-                "start_line": 10,
-                "end_line": 12,
-                "text": "def bar(): pass",
-                "chunk_kind": "function",
-            },
-        ]
+        self._rows = (
+            rows
+            if rows is not None
+            else [
+                {
+                    "id": "c1",
+                    "path": "src/foo.py",
+                    "start_line": 1,
+                    "end_line": 5,
+                    "text": "def foo(): pass",
+                    "chunk_kind": "function",
+                },
+                {
+                    "id": "c2",
+                    "path": "src/bar.py",
+                    "start_line": 10,
+                    "end_line": 12,
+                    "text": "def bar(): pass",
+                    "chunk_kind": "function",
+                },
+            ]
+        )
 
     def get_chunks_by_ids(self, chunk_ids: list[str]) -> list[dict[str, Any]]:
         return [r for r in self._rows if r["id"] in chunk_ids]
