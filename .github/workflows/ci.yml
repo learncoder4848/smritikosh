@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A later push to the same branch makes the in-flight run redundant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-groups
+      - run: make lint
+      # The Makefile's fmt target rewrites files; CI needs the read-only form.
+      - run: uv run ruff format --check smritikosh/ tests/
+
+  # pyproject.toml advertises 3.10 through 3.13, so all four are tested.
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync --all-groups
+      - run: make test
+
+  # Separated from the matrix: coverage of a given line can legitimately
+  # differ between interpreters, and one threshold is enough.
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-groups
+      - run: make cov
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv build
+
+      # The .scm query files reach the wheel only through a package-data glob
+      # in pyproject.toml; nothing in the test suite notices if it stops
+      # matching. Catching that here beats catching it during a release.
+      - name: Check wheel carries the tag queries
+        run: |
+          found=$(unzip -l dist/*.whl | grep -c 'queries/.*/tags\.scm')
+          if [ "$found" -ne 7 ]; then
+            echo "Expected 7 tags.scm files in the wheel, found $found." >&2
+            exit 1
+          fi
+
+      - run: uvx --from twine twine check dist/*
