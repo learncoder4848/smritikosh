@@ -99,7 +99,7 @@ def _select_by_size(
 
 
 def _key_path(cap: Capture, ancestors: list[Capture]) -> str:
-    """Dotted key path for *cap*, e.g. ``chapters.identity.submit_errors``."""
+    """Dotted key path for *cap*, e.g. ``chapters.overview.error_codes``."""
     return ".".join(c.name for c in [*ancestors, cap] if c.name)
 
 

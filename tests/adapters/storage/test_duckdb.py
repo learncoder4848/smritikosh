@@ -211,9 +211,9 @@ def test_get_chunks_by_ids_returns_correct_metadata(adapter: DuckDBAdapter) -> N
 
 
 def test_get_chunks_by_ids_returns_the_stored_symbol(adapter: DuckDBAdapter) -> None:
-    adapter.upsert_chunk_nodes([_chunk("c1", symbol="InterestCalculator")])
+    adapter.upsert_chunk_nodes([_chunk("c1", symbol="PermissionChecker")])
 
-    assert adapter.get_chunks_by_ids(["c1"])[0]["symbol"] == "InterestCalculator"
+    assert adapter.get_chunks_by_ids(["c1"])[0]["symbol"] == "PermissionChecker"
 
 
 def test_get_chunks_by_ids_returns_no_symbol_when_the_chunker_knew_none(
