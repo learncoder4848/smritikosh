@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, replace
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
@@ -16,6 +17,8 @@ if TYPE_CHECKING:
     from smritikosh.ports.embedder import Embedder
 
 __all__ = [
+    "GraphDirection",
+    "ImpactEntry",
     "IndexInfo",
     "IndexedChunk",
     "OutlineEntry",
@@ -23,6 +26,7 @@ __all__ = [
     "SearchOptions",
     "SourceLine",
     "TextMatch",
+    "UnresolvedReference",
 ]
 
 _NON_PRODUCTION_PATH_PENALTY: Final[float] = 0.8
@@ -119,6 +123,47 @@ class SearchOptions:
     top_k: int = 10
     include_paths: tuple[str, ...] = ()
     exclude_paths: tuple[str, ...] = ()
+
+
+class GraphDirection(StrEnum):
+    """Which way to walk the call graph from a symbol."""
+
+    #: What reaches this symbol — its callers, and their callers.
+    IN = "in"
+    #: What this symbol reaches — what it calls, and what that calls.
+    OUT = "out"
+
+
+@dataclass(frozen=True)
+class ImpactEntry:
+    """One symbol reached by walking the graph from another."""
+
+    symbol: str
+    path: str
+    start_line: int
+    end_line: int
+    #: Hops from the starting symbol; 1 is a direct caller or callee.
+    depth: int
+    #: Lowest confidence on the path taken to reach this symbol, so a hit that
+    #: depended on an ambiguous name is not presented as firm.
+    confidence: float
+    #: Populated only when a query was supplied to rank by.
+    relevance: float | None = None
+
+
+@dataclass(frozen=True)
+class UnresolvedReference:
+    """One name a symbol mentions that no indexed definition satisfies.
+
+    Usually a standard-library or third-party call, which the index has no
+    reason to know. Reporting it is what separates "nothing calls this" from
+    "the graph stops here".
+    """
+
+    path: str
+    line: int
+    name: str
+    src_symbol: str | None
 
 
 class ReadOnlyExplorer:
@@ -253,11 +298,14 @@ class ReadOnlyExplorer:
             Matching paths in lexical order.
         """
         self._validate_limit(limit)
+        # Restricted to file nodes: every path is carried by one, and without
+        # the filter this scans every chunk and symbol row for the same answer.
         rows: list[tuple[str]] = self._connection.execute(
             """
             SELECT DISTINCT path
             FROM nodes
-            WHERE path IS NOT NULL AND contains(lower(path), lower(?))
+            WHERE kind = 'file'
+              AND path IS NOT NULL AND contains(lower(path), lower(?))
             ORDER BY path
             LIMIT ?
             """,
@@ -477,6 +525,130 @@ class ReadOnlyExplorer:
             SourceLine(line_number=number, text=lines[number])
             for number in sorted(lines)
         ]
+
+    def impact(
+        self,
+        symbol: str,
+        *,
+        direction: GraphDirection = GraphDirection.IN,
+        depth: int = 1,
+        min_confidence: float = 0.0,
+        limit: int = 50,
+    ) -> list[ImpactEntry]:
+        """Walk the call graph from every definition named *symbol*.
+
+        Args:
+            symbol: Exact definition name to start from.
+            direction: ``IN`` for what reaches this symbol, ``OUT`` for what it
+                reaches.
+            depth: Maximum hops to follow.
+            min_confidence: Drop edges scoring below this. Raise it to exclude
+                hops that rest on an ambiguous name.
+            limit: Maximum number of symbols to return.
+
+        Returns:
+            Reached symbols, nearest first, each carrying the weakest
+            confidence on the path that found it.
+
+        Raises:
+            ValueError: If ``depth`` or ``limit`` is not positive.
+        """
+        self._validate_limit(limit)
+        if depth <= 0:
+            raise ValueError("depth must be positive")
+        # Walking "in" follows edges backwards: an edge runs caller -> callee,
+        # so the callers of X are the sources of edges whose target is X.
+        step_from, step_to = (
+            ("dst", "src") if direction is GraphDirection.IN else ("src", "dst")
+        )
+        rows: list[tuple[str, str, int, int, int, float]] = self._connection.execute(
+            self._impact_sql(step_from=step_from, step_to=step_to),
+            [symbol, min_confidence, depth, limit],
+        ).fetchall()
+        return [
+            ImpactEntry(
+                symbol=row[0],
+                path=row[1],
+                start_line=row[2],
+                end_line=row[3],
+                depth=row[4],
+                confidence=row[5],
+            )
+            for row in rows
+        ]
+
+    def unresolved_references(
+        self,
+        *,
+        path: str | None = None,
+        limit: int = 50,
+    ) -> list[UnresolvedReference]:
+        """List mentions that no indexed definition satisfies.
+
+        Args:
+            path: Optional exact indexed path to restrict to.
+            limit: Maximum number of mentions to return.
+
+        Returns:
+            Unresolved mentions in source order.
+        """
+        self._validate_limit(limit)
+        clauses: list[str] = [
+            "NOT EXISTS (SELECT 1 FROM edges AS e WHERE e.ref_id = r.id)"
+        ]
+        parameters: list[str | int] = []
+        if path is not None:
+            clauses.append("r.path = ?")
+            parameters.append(path)
+        parameters.append(limit)
+        rows: list[tuple[str, int, str, str | None]] = self._connection.execute(
+            f"""
+            SELECT r.path, r.line, r.name, s.name
+            FROM refs AS r
+            LEFT JOIN nodes AS s ON s.id = r.src_symbol AND s.kind = 'symbol'
+            WHERE {" AND ".join(clauses)}
+            ORDER BY r.path, r.line
+            LIMIT ?
+            """,  # noqa: S608
+            parameters,
+        ).fetchall()
+        return [
+            UnresolvedReference(
+                path=row[0], line=row[1], name=row[2], src_symbol=row[3]
+            )
+            for row in rows
+        ]
+
+    @staticmethod
+    def _impact_sql(*, step_from: str, step_to: str) -> str:
+        """Build the depth-bounded traversal.
+
+        ``min(depth)`` and ``min(confidence)`` collapse the several paths that
+        can reach one symbol into the nearest and the least certain of them —
+        the honest summary of "how close is it, and how sure are we".
+        """
+        return f"""
+            WITH RECURSIVE reached(symbol_id, depth, confidence) AS (
+                SELECT id, 0, 1.0
+                FROM nodes
+                WHERE kind = 'symbol' AND name = ?
+              UNION
+                SELECT e.{step_to}, r.depth + 1, least(r.confidence, e.confidence)
+                FROM edges AS e
+                JOIN reached AS r ON e.{step_from} = r.symbol_id
+                WHERE e.confidence >= ? AND r.depth < ?
+            )
+            SELECT s.name, s.path,
+                   CAST(json_extract(s.metadata, '$.start_line') AS INTEGER),
+                   CAST(json_extract(s.metadata, '$.end_line') AS INTEGER),
+                   min(r.depth), min(r.confidence)
+            FROM reached AS r
+            JOIN nodes AS s ON s.id = r.symbol_id
+            WHERE r.depth > 0
+            GROUP BY 1, 2, 3, 4
+            ORDER BY min(r.depth), s.name
+            LIMIT ?
+        """  # noqa: S608
 
     def _search_vector(
         self,

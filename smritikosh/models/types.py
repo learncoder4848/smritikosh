@@ -41,6 +41,25 @@ class Symbol:
 
 
 @dataclass
+class Reference:
+    """One name a symbol mentions, recorded before anything resolves it.
+
+    ``name`` is the text as written, which is what makes the row reusable: a
+    reference survives the rename of whatever it points at, so the graph can be
+    rebuilt without re-reading the file that wrote it. Resolving a reference to
+    a definition needs every file, and so happens once, after indexing.
+    """
+
+    id: str
+    #: ``Symbol.id`` of the definition that encloses this mention.
+    src_symbol: str
+    name: str
+    kind: str
+    path: str
+    line: int
+
+
+@dataclass
 class ParsedFile:
     """A parsed source file and its tree-sitter tree."""
 

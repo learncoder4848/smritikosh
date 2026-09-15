@@ -35,10 +35,21 @@ def test_should_describe_all_exploration_tools_as_toon() -> None:
     # Assert
     assert result.exit_code == 0
     manifest = toons.loads(result.output)
-    assert list(manifest["tools"]) == ["search", "chunks", "text", "paths", "info"]
+    assert list(manifest["tools"]) == [
+        "search",
+        "chunks",
+        "text",
+        "paths",
+        "impact",
+        "stops",
+        "info",
+    ]
     assert "loads the embedding model" in manifest["tools"]["search"]
     # The flow is the point of the manifest: one call finds, the next reads.
     assert "--start-line" in manifest["flow"]
+    # ...and which of the two retrievers to start from, since a wrong first
+    # pick costs a whole round trip.
+    assert "Name unknown" in manifest["flow"]
 
 
 def test_should_emit_toon_without_being_asked_and_ignore_the_pre_toon_flags() -> None:
@@ -54,7 +65,7 @@ def test_should_emit_toon_without_being_asked_and_ignore_the_pre_toon_flags() ->
     # Assert
     assert [result.exit_code for result in results] == [0, 0, 0, 0]
     assert len({result.output for result in results}) == 1
-    assert results[0].output.startswith("version: 2")
+    assert results[0].output.startswith("version: 3")
 
 
 def test_should_emit_machine_readable_index_info(tmp_path: Path) -> None:

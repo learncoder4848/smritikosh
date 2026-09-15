@@ -12,21 +12,25 @@ import toons
 from smritikosh.adapters.embedder import make_embedder
 from smritikosh.constants import DEFAULT_DB_PATH
 from smritikosh.exploration import (
+    GraphDirection,
+    ImpactEntry,
     IndexedChunk,
     OutlineEntry,
     ReadOnlyExplorer,
     SearchOptions,
     SourceLine,
     TextMatch,
+    UnresolvedReference,
 )
 from smritikosh.models import SearchResult
 
 __all__ = ["explore"]
 
 TOOL_MANIFEST: Final[dict[str, object]] = {
-    "version": 2,
+    "version": 3,
     "flow": (
-        "search returns locations; read one with "
+        "Name unknown, meaning known: search. Name known, want what connects "
+        "to it: impact. search returns locations; read one with "
         "chunks PATH --start-line N --end-line M. Two calls answer most "
         "questions."
     ),
@@ -48,12 +52,22 @@ TOOL_MANIFEST: Final[dict[str, object]] = {
             "string, as path:line: line"
         ),
         "paths": "explore paths PATTERN [--limit N] — paths containing a substring",
+        "impact": (
+            "explore impact SYMBOL [--direction in|out] [--depth N] "
+            "[--min-confidence F] — what breaks if SYMBOL changes (in) or what "
+            "it reaches (out); reports symbols, not code"
+        ),
+        "stops": (
+            "explore stops [--path PATH] — calls no indexed definition "
+            "satisfies, so an empty impact is distinguishable from a gap"
+        ),
         "info": "explore info — index size and embedding dimensions",
     },
     "notes": (
         "Prefix every command with `smritikosh `. Output is TOON; --prose "
         "switches to prose. All but tools take --db-path INDEX. Source "
-        "lines print as numbered text either way."
+        "lines print as numbered text either way. impact reports locations; "
+        "read the ones that matter with chunks rather than all of them."
     ),
 }
 
@@ -86,6 +100,43 @@ def _echo_outline(entries: list[OutlineEntry], *, path: str) -> None:
         kind: str = entry.chunk_kind or "chunk"
         name: str = entry.symbol or "-"
         click.echo(f"{span:<{width}}  {kind}  {name}")
+
+
+def _echo_impact(
+    entries: list[ImpactEntry],
+    *,
+    symbol: str,
+    direction: str,
+) -> None:
+    if not entries:
+        click.echo(
+            f"No symbols {'reach' if direction == 'in' else 'reached by'} "
+            f"{symbol}. Check `explore stops` — the call may be unresolved "
+            "rather than absent."
+        )
+        return
+    verb: str = "reaching" if direction == "in" else "reached by"
+    click.echo(f"{len(entries)} symbol(s) {verb} {symbol}:\n")
+    for entry in entries:
+        # "?" marks a hop that rested on an ambiguous name, so a reader can
+        # tell a certain caller from a plausible one without reading the code.
+        marker: str = "" if entry.confidence >= 1.0 else "  ?"
+        click.echo(
+            f"depth {entry.depth}  {entry.symbol}  "
+            f"{entry.path}:{entry.start_line}-{entry.end_line}{marker}"
+        )
+
+
+def _echo_unresolved(references: list[UnresolvedReference]) -> None:
+    if not references:
+        click.echo("No unresolved calls.")
+        return
+    for reference in references:
+        source: str = reference.src_symbol or "-"
+        click.echo(
+            f"{reference.path}:{reference.line}: {source} -> "
+            f'"{reference.name}" not defined in this index'
+        )
 
 
 def _echo_text_matches(matches: list[TextMatch]) -> None:
@@ -336,6 +387,105 @@ def find_paths(
         _echo_toon(paths)
         return
     click.echo("\n".join(paths) if paths else "No paths found.")
+
+
+@explore.command("impact")
+@click.argument("symbol")
+@click.option(
+    "--direction",
+    type=click.Choice(["in", "out"]),
+    default="in",
+    show_default=True,
+    help="in: what reaches SYMBOL.  out: what SYMBOL reaches.",
+)
+@click.option("--depth", default=1, show_default=True, type=click.IntRange(min=1))
+@click.option(
+    "--min-confidence",
+    "--min_confidence",
+    default=0.0,
+    show_default=True,
+    type=click.FloatRange(min=0.0, max=1.0),
+    help="Drop hops resting on an ambiguous name; 1.0 keeps only certain ones.",
+)
+@click.option("--limit", default=50, show_default=True, type=click.IntRange(min=1))
+@click.option(
+    "--db-path",
+    "--db_path",
+    default=DEFAULT_DB_PATH,
+    show_default=True,
+    type=click.Path(exists=True, dir_okay=False),
+)
+@click.option(
+    "--prose",
+    is_flag=True,
+    help="Print prose for a human instead of the default TOON rows.",
+)
+def impact(
+    symbol: str,
+    direction: str,
+    depth: int,
+    min_confidence: float,
+    limit: int,
+    db_path: str,
+    prose: bool,
+) -> None:
+    """Report what changing SYMBOL affects, or what it depends on.
+
+    Symbols only, never their code — the point is to narrow a long list before
+    reading anything. Read the ones that matter with
+    `chunks PATH --start-line N --end-line M`.
+    """
+    try:
+        with ReadOnlyExplorer(db_path) as explorer:
+            entries: list[ImpactEntry] = explorer.impact(
+                symbol,
+                direction=GraphDirection(direction),
+                depth=depth,
+                min_confidence=min_confidence,
+                limit=limit,
+            )
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    if not prose:
+        _echo_toon([asdict(entry) for entry in entries])
+        return
+    _echo_impact(entries, symbol=symbol, direction=direction)
+
+
+@explore.command("stops")
+@click.option("--path", help="Restrict results to one exact indexed path.")
+@click.option("--limit", default=50, show_default=True, type=click.IntRange(min=1))
+@click.option(
+    "--db-path",
+    "--db_path",
+    default=DEFAULT_DB_PATH,
+    show_default=True,
+    type=click.Path(exists=True, dir_okay=False),
+)
+@click.option(
+    "--prose",
+    is_flag=True,
+    help="Print prose for a human instead of the default TOON rows.",
+)
+def stops(path: str | None, limit: int, db_path: str, prose: bool) -> None:
+    """List calls that no indexed definition satisfies.
+
+    Mostly standard-library and third-party calls the index has no reason to
+    know. Reporting them is what makes an empty `impact` result readable: the
+    graph stopped here, rather than nothing being there.
+    """
+    try:
+        with ReadOnlyExplorer(db_path) as explorer:
+            references: list[UnresolvedReference] = explorer.unresolved_references(
+                path=path,
+                limit=limit,
+            )
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    if not prose:
+        _echo_toon([asdict(reference) for reference in references])
+        return
+    _echo_unresolved(references)
 
 
 @explore.command("text")

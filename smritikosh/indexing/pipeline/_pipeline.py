@@ -8,6 +8,7 @@ from collections.abc import Callable
 
 from smritikosh.adapters.embedder.fastembed import FastEmbedEmbedder
 from smritikosh.adapters.file_source.local import LocalFileSource
+from smritikosh.adapters.graph_store.duckdb import DuckDBGraphStore
 from smritikosh.adapters.storage.duckdb import DuckDBAdapter
 from smritikosh.adapters.vector_store.duckdb import DuckDBVectorStore
 from smritikosh.constants import DEFAULT_DB_PATH
@@ -21,10 +22,17 @@ from smritikosh.engine import (
 )
 from smritikosh.indexing.discovery import iter_source_files
 from smritikosh.indexing.pipeline._router import _build_router
-from smritikosh.indexing.pipeline._stages import _chunk, _extract, _parse
+from smritikosh.indexing.pipeline._stages import (
+    _chunk,
+    _extract,
+    _extract_references,
+    _graph,
+    _parse,
+)
 from smritikosh.indexing.strategies._helpers import budget_chars
 from smritikosh.models import Chunk, SourceFile
 from smritikosh.ports.embedder import Embedder
+from smritikosh.ports.graph_store import GraphStore
 from smritikosh.ports.storage import StorageAdapter
 from smritikosh.ports.vector_store import VectorStore
 
@@ -34,6 +42,7 @@ from smritikosh.ports.vector_store import VectorStore
 EMBEDDER: ContextKey[Embedder] = ContextKey("embedder", detect_change=True)
 STORAGE: ContextKey[StorageAdapter] = ContextKey("storage")
 VECTOR_STORE: ContextKey[VectorStore] = ContextKey("vector_store")
+GRAPH_STORE: ContextKey[GraphStore] = ContextKey("graph_store")
 
 
 # ── Per-chunk embedding ───────────────────────────────────────────────────────
@@ -84,22 +93,33 @@ async def process_chunk(chunk: Chunk) -> None:
 
 @sm.memoized
 async def process_file(source: SourceFile) -> None:
-    """Parse → extract → chunk → embed one source file incrementally."""
-    storage      = use_context(STORAGE)
+    """Parse → extract → chunk → embed → graph one source file incrementally."""
+    storage = use_context(STORAGE)
     vector_store = use_context(VECTOR_STORE)
+    graph_store = use_context(GRAPH_STORE)
 
-    old_ids  = storage.get_chunk_ids_for_file(source.path)
-    parsed   = await _parse(source)
+    old_ids = storage.get_chunk_ids_for_file(source.path)
+    old_symbol_ids = graph_store.get_symbol_ids_for_file(source.path)
+    parsed = await _parse(source)
     captures = await _extract(parsed, source.has_tags_scm)
-    chunks   = await _chunk(parsed, captures, source.strategy)
-    new_ids  = {c.id for c in chunks}
+    mentions = await _extract_references(parsed, source.has_tags_scm)
+    chunks = await _chunk(parsed, captures, source.strategy)
+    symbols, refs = await _graph(parsed, captures, mentions)
+    new_ids = {c.id for c in chunks}
 
     for stale_id in old_ids - new_ids:
         storage.delete_chunk_node(stale_id)
         vector_store.delete(stale_id)
 
+    for stale_symbol_id in old_symbol_ids - {s.id for s in symbols}:
+        graph_store.delete_symbol(stale_symbol_id)
+
     storage.upsert_file_node(source)
     storage.upsert_chunk_nodes(chunks)
+    graph_store.upsert_symbols(symbols)
+    # Rewritten wholesale rather than diffed: the file is what changed, and a
+    # mention that shifted by a line is the same mention.
+    graph_store.replace_references(source.path, refs)
     await sm.gather(process_chunk, chunks)
 
     # Write file hash after success — a crash forces full re-process next run.
@@ -119,21 +139,23 @@ async def _run_pipeline(
     file_concurrency: int | None = None,
     on_file_indexed: Callable[[str], None] | None = None,
 ) -> None:
-    """Discover files, clean up deleted ones, fan out process_file."""
-    storage     = use_context(STORAGE)
-    embedder    = use_context(EMBEDDER)
+    """Discover files, clean up deleted ones, fan out process_file, resolve."""
+    storage = use_context(STORAGE)
+    graph_store = use_context(GRAPH_STORE)
+    embedder = use_context(EMBEDDER)
     file_source = LocalFileSource(repo_path)
     # Chunks are capped at what this model actually encodes — an over-long
     # chunk would be stored whole but embedded from its prefix only.
-    max_chars   = budget_chars(embedder.max_tokens)
-    files       = list(iter_source_files(file_source, _build_router(max_chars)))
+    max_chars = budget_chars(embedder.max_tokens)
+    files = list(iter_source_files(file_source, _build_router(max_chars)))
 
-    stored_paths  = set(storage.get_all_file_paths())
+    stored_paths = set(storage.get_all_file_paths())
     current_paths = {f.path for f in files}
-    memo_store    = get_memo_store()
+    memo_store = get_memo_store()
 
     for deleted in stored_paths - current_paths:
         storage.delete_file(deleted)
+        graph_store.delete_file(deleted)
         memo_store.delete_component("process_file", deleted)
 
     def _item_done(source: SourceFile) -> None:
@@ -141,10 +163,18 @@ async def _run_pipeline(
             on_file_indexed(source.path)
 
     await sm.fan_out(
-        process_file, files,
+        process_file,
+        files,
         concurrency=file_concurrency,
         item_done=_item_done,
     )
+
+    # Resolution sits outside the per-file memo on purpose: a name can only be
+    # looked up once every definition is known, so a file that was skipped as
+    # unchanged still contributes the mentions it recorded on an earlier run.
+    # Rebuilding the whole set costs less than one traversal query, which is
+    # why nothing here tracks which edges went stale.
+    graph_store.rebuild_edges()
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
@@ -167,6 +197,7 @@ def build_index(
     embedder: Embedder | None = None,
     storage: StorageAdapter | None = None,
     vector_store: VectorStore | None = None,
+    graph_store: GraphStore | None = None,
     file_concurrency: int | None = None,
     on_file_indexed: Callable[[str], None] | None = None,
 ) -> None:
@@ -182,6 +213,8 @@ def build_index(
         Defaults to DuckDBAdapter writing to ``smritikosh.duckdb``.
     vector_store:
         Defaults to DuckDBVectorStore sharing the storage connection.
+    graph_store:
+        Defaults to DuckDBGraphStore sharing the storage connection.
     file_concurrency:
         Max files processed concurrently.  ``None`` auto-selects
         ``min(cpu_count, 4)``.  Lower on memory-constrained machines.
@@ -191,14 +224,16 @@ def build_index(
         the file path as a string.  Used by the CLI to drive progress bars.
     """
     embedder = embedder or FastEmbedEmbedder()
-    storage  = storage  or DuckDBAdapter(DEFAULT_DB_PATH)
+    storage = storage or DuckDBAdapter(DEFAULT_DB_PATH)
 
     # Share DuckDB connection across vector store and memo cache when available.
     # Adapters without .con skip memoization and always re-evaluate the pipeline.
-    _con         = getattr(storage, "con", None)
+    _con = getattr(storage, "con", None)
     vector_store = vector_store or DuckDBVectorStore(DEFAULT_DB_PATH, con=_con)
+    graph_store = graph_store or DuckDBGraphStore(DEFAULT_DB_PATH, con=_con)
 
     vector_store.setup(embedder.dims)
+    graph_store.setup()
 
     if _con is not None:
         initialize_memo_store(_con)
@@ -207,10 +242,13 @@ def build_index(
     ctx.provide(EMBEDDER, embedder)
     ctx.provide(STORAGE, storage)
     ctx.provide(VECTOR_STORE, vector_store)
+    ctx.provide(GRAPH_STORE, graph_store)
 
     with ctx:
-        asyncio.run(_run_pipeline(
-            repo_path,
-            file_concurrency=file_concurrency,
-            on_file_indexed=on_file_indexed,
-        ))
+        asyncio.run(
+            _run_pipeline(
+                repo_path,
+                file_concurrency=file_concurrency,
+                on_file_indexed=on_file_indexed,
+            )
+        )

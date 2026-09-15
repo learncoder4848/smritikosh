@@ -1,8 +1,10 @@
 ; Python tags. Derived from tree-sitter/tree-sitter-python queries/tags.scm (MIT).
 ;
-; Definitions only. The upstream file also emits @reference.call, which measured
-; at 6.9x the definition volume across the reference corpus and has no consumer
-; in the chunker; it can come back with the call-graph work that needs it.
+; Definitions and call references. The @reference.call rules at the foot of this
+; file are the upstream ones, restored for the call graph that now consumes them;
+; they measured at 6.9x the definition volume across the reference corpus, which
+; is why only the graph reads them. `extract_file` filters to `definition.` and
+; the chunker never sees them.
 ;
 ; `async def` is a plain function_definition with an optional `async` token, and
 ; `X: Final[int] = 1` is an assignment carrying a `type:` field. Neither
@@ -103,3 +105,16 @@
   (assignment
     left: (identifier) @name
     (#match? @name "^[A-Z][A-Za-z0-9]*[a-z][A-Za-z0-9]*$")) @definition.type)
+
+; ── call references ──────────────────────────────────────────────────────────
+; Read only by the grapher, never by the chunker. `self.method()` and
+; `module.function()` both capture the trailing identifier, so the name stored
+; is the bare `method` — the receiver is dropped here and recovered at
+; resolution time, where a dotted reference is matched on its last segment.
+
+(call
+  function: (identifier) @name) @reference.call
+
+(call
+  function: (attribute
+    attribute: (identifier) @name)) @reference.call

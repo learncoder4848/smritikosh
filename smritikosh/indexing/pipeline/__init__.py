@@ -22,6 +22,7 @@ Sub-modules (private, prefixed with ``_``) are an implementation detail:
 
 from smritikosh.indexing.pipeline._pipeline import (
     EMBEDDER,
+    GRAPH_STORE,
     STORAGE,
     VECTOR_STORE,
     build_index,
@@ -32,6 +33,7 @@ from smritikosh.indexing.pipeline._pipeline import (
 
 __all__ = [
     "EMBEDDER",
+    "GRAPH_STORE",
     "STORAGE",
     "VECTOR_STORE",
     "build_index",

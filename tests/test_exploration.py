@@ -103,8 +103,11 @@ def indexed_db(tmp_path: Path) -> str:
         """
     )
     rows: list[tuple[str, str, str | None, str, str]] = [
+        # Indexing writes a file node for every path it stores chunks for, so
+        # the three paths below all carry one.
         ("file:src/billing.py", "file", None, "src/billing.py", "{}"),
         ("file:docs/billing.md", "file", None, "docs/billing.md", "{}"),
+        ("file:tests/test_billing.py", "file", None, "tests/test_billing.py", "{}"),
         (
             "chunk:implementation",
             "chunk",
@@ -171,7 +174,7 @@ def test_should_report_index_counts_when_index_exists(indexed_db: str) -> None:
     explorer.close()
 
     # Assert
-    assert (info.files, info.chunks, info.vectors, info.dimensions) == (2, 3, 3, 3)
+    assert (info.files, info.chunks, info.vectors, info.dimensions) == (3, 3, 3, 3)
 
 
 def test_should_merge_ad_hoc_queries_by_best_score(indexed_db: str) -> None:
