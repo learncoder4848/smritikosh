@@ -181,7 +181,6 @@ def test_index_full_calls_clear_caches_on_storage(runner, repo, db_path) -> None
         runner.invoke(main, ["index", repo, "--db-path", db_path, "--full"])
 
     storage.clear_caches.assert_called_once()
-    storage.clear_index.assert_called_once()
 
 
 def test_index_db_path_forwarded_to_open_stores(runner, repo, tmp_path: Path) -> None:

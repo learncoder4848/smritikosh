@@ -111,7 +111,7 @@ def split_oversized(
 
 
 def chunk_id(path: str, text: str, start_line: int, end_line: int) -> str:
-    """Return a stable location-aware id while keeping content hashes reusable."""
+    """Return a stable location-aware storage id."""
     identity: str = f"{path}\0{start_line}:{end_line}\0{text}"
     return hashlib.sha256(identity.encode()).hexdigest()[:16]
 

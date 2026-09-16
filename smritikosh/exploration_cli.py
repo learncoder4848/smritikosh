@@ -507,33 +507,35 @@ def collect_evidence(
     queries = tuple(query[:500] for query in queries[:8])
     embedder: Embedder = make_embedder()
     reader = DuckDBSourceReader(db_path)
-    lexical_store = DuckDBBm25Store(db_path, read_only=True)
     try:
-        service = EvidenceService(
-            (
-                DuckDBDenseRetriever(reader, embedder),
-                DuckDBLexicalRetriever(lexical_store, reader),
-            ),
-            reader,
-        )
+        lexical_store = DuckDBBm25Store(db_path, read_only=True)
         try:
-            pack: EvidencePack = service.retrieve(
-                queries,
-                options=EvidenceOptions(
-                    candidates_per_channel=max(30, per_query * 6),
-                    max_results=max_results,
-                    max_source_lines=max_source_lines,
-                    max_chars=max_chars,
+            service = EvidenceService(
+                (
+                    DuckDBDenseRetriever(reader, embedder),
+                    DuckDBLexicalRetriever(lexical_store, reader),
                 ),
+                reader,
             )
-        except RuntimeError as exc:
-            raise click.ClickException(str(exc)) from exc
-        payload: dict[str, object] = _evidence_pack_payload(
-            pack,
-            max_chars=max_chars,
-        )
+            try:
+                pack: EvidencePack = service.retrieve(
+                    queries,
+                    options=EvidenceOptions(
+                        candidates_per_channel=max(30, per_query * 6),
+                        max_results=max_results,
+                        max_source_lines=max_source_lines,
+                        max_chars=max_chars,
+                    ),
+                )
+            except RuntimeError as exc:
+                raise click.ClickException(str(exc)) from exc
+            payload: dict[str, object] = _evidence_pack_payload(
+                pack,
+                max_chars=max_chars,
+            )
+        finally:
+            lexical_store.close()
     finally:
-        lexical_store.close()
         reader.close()
     click.echo(
         _bounded_toon_payload(

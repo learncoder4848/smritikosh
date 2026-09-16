@@ -338,24 +338,9 @@ def test_clear_caches_does_not_touch_nodes_table(adapter: DuckDBAdapter) -> None
     assert adapter.get_all_file_paths() == set()  # hashes cleared
 
 
-def test_clear_index_removes_source_dense_and_lexical_rows(
-    adapter: DuckDBAdapter,
-) -> None:
+def test_clear_nodes_removes_only_source_nodes(adapter: DuckDBAdapter) -> None:
     adapter.upsert_chunk_nodes([_chunk("c1")])
-    adapter.con.execute(
-        "CREATE TABLE vectors (chunk_id TEXT PRIMARY KEY, vector FLOAT[1])"
-    )
-    adapter.con.execute("INSERT INTO vectors VALUES ('c1', [1.0])")
-    adapter.con.execute(
-        "CREATE TABLE lexical_documents ("
-        "chunk_id TEXT PRIMARY KEY, path TEXT, length INTEGER)"
-    )
-    adapter.con.execute("INSERT INTO lexical_documents VALUES ('c1', 'a/b.py', 1)")
 
-    adapter.clear_index()
+    adapter.clear_nodes()
 
     assert adapter.get_chunk_ids_for_file("a/b.py") == set()
-    assert adapter.con.execute("SELECT count(*) FROM vectors").fetchone()[0] == 0
-    assert (
-        adapter.con.execute("SELECT count(*) FROM lexical_documents").fetchone()[0] == 0
-    )

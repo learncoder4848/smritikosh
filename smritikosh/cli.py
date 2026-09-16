@@ -124,7 +124,6 @@ def index(
     try:
         if full:
             storage.clear_caches()
-            storage.clear_index()
             click.echo("Cleared indexes and incremental caches — full rebuild forced.")
 
         n_files = count_source_files(repo_path)
@@ -149,6 +148,7 @@ def index(
                 storage,
                 vector_store,
                 on_file_indexed=_on_file,
+                full=full,
             )
 
         elapsed = time.perf_counter() - t0

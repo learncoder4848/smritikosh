@@ -933,3 +933,33 @@ def test_should_clamp_evidence_limits_instead_of_failing(tmp_path: Path) -> None
         120,
         45_000,
     )
+
+
+def test_should_close_reader_when_bm25_store_construction_fails(
+    tmp_path: Path,
+) -> None:
+    db_path: Path = tmp_path / "index.duckdb"
+    db_path.touch()
+    reader = MagicMock()
+
+    with (
+        patch(
+            "smritikosh.exploration_cli.DuckDBSourceReader",
+            return_value=reader,
+        ),
+        patch(
+            "smritikosh.exploration_cli.DuckDBBm25Store",
+            side_effect=RuntimeError("cannot open BM25"),
+        ),
+        patch(
+            "smritikosh.exploration_cli.make_embedder",
+            return_value=MagicMock(),
+        ),
+    ):
+        result = CliRunner().invoke(
+            main,
+            ["explore", "evidence", "query", "--db-path", str(db_path)],
+        )
+
+    assert result.exit_code != 0
+    reader.close.assert_called_once_with()
