@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import time
-from dataclasses import asdict
-from typing import Final, cast
+from dataclasses import asdict, dataclass
+from typing import Final, TextIO, cast
 
 import click
 import toons
@@ -20,15 +21,16 @@ from smritikosh.exploration import (
     TextMatch,
 )
 from smritikosh.models import SearchResult
+from smritikosh.ports.embedder import Embedder
 
 __all__ = ["explore"]
 
 TOOL_MANIFEST: Final[dict[str, object]] = {
-    "version": 2,
+    "version": 4,
     "flow": (
-        "search returns locations; read one with "
-        "chunks PATH --start-line N --end-line M. Two calls answer most "
-        "questions."
+        "For broad questions run evidence with 4-8 focused query arguments, "
+        "then at most one chunks --range follow-up. Use batch for already-known "
+        "mixed operations. Never request whole-file source unless essential."
     ),
     # One line per tool: the manifest is read by an agent on every session, so
     # its own size is a cost, and nested argument tables cost more than they
@@ -36,12 +38,13 @@ TOOL_MANIFEST: Final[dict[str, object]] = {
     "tools": {
         "search": (
             "explore search QUERY... [--top-k N] [--include-path LIKE] "
-            "[--exclude-path LIKE] [--full] — code by meaning; reports "
-            "locations, not code; loads the embedding model"
+            "[--exclude-path LIKE] [--context N] [--full] — code by meaning; "
+            "reports locations by default; loads the embedding model"
         ),
         "chunks": (
-            "explore chunks PATH [--start-line N] [--end-line M] [--full] — "
-            "outline a file, or print its source for a line range"
+            "explore chunks [PATH] [--start-line N] [--end-line M] [--full] "
+            "[--range PATH START END]... — outline one file or read one or more "
+            "source ranges"
         ),
         "text": (
             "explore text TEXT [--path PATH] [--limit N] — exact symbol or "
@@ -49,6 +52,18 @@ TOOL_MANIFEST: Final[dict[str, object]] = {
         ),
         "paths": "explore paths PATTERN [--limit N] — paths containing a substring",
         "info": "explore info — index size and embedding dimensions",
+        "batch": (
+            "explore batch — NDJSON on stdin; each row uses op (or tool): "
+            'search {queries:[...] or query:"...",top_k,context}, chunks '
+            "{path,start_line?,end_line?}, text {text,path?,limit?}, paths "
+            "{pattern,limit?}, or info; resources stay warm"
+        ),
+        "evidence": (
+            "explore evidence QUERY... [--per-query N] [--max-results N] "
+            "[--max-chars N] — bounded, deduplicated, numbered source evidence "
+            "for several facets in one invocation; first query is the topic "
+            "anchor automatically applied to every later facet"
+        ),
     },
     "notes": (
         "Prefix every command with `smritikosh `. Output is TOON; --prose "
@@ -109,7 +124,20 @@ def _echo_source_lines(lines: list[SourceLine], *, path: str) -> None:
         click.echo(f"{line.line_number:>{width}}  {line.text}")
 
 
-def _result_payload(result: SearchResult, *, full: bool) -> dict[str, object]:
+def _numbered_source(lines: list[SourceLine]) -> str:
+    """Format source lines compactly while preserving their exact locations."""
+    if not lines:
+        return ""
+    width: int = len(str(lines[-1].line_number))
+    return "\n".join(f"{line.line_number:>{width}}  {line.text}" for line in lines)
+
+
+def _result_payload(
+    result: SearchResult,
+    *,
+    full: bool,
+    context: str | None = None,
+) -> dict[str, object]:
     """Serialize one hit, carrying its code only when it was asked for."""
     payload: dict[str, object] = asdict(result)
     # Cosine scores separate hits in the third decimal at most; the float's
@@ -117,7 +145,46 @@ def _result_payload(result: SearchResult, *, full: bool) -> dict[str, object]:
     payload["score"] = round(result.score, 3)
     if not full:
         del payload["snippet"]
+    if context is not None:
+        payload["context"] = context
     return payload
+
+
+def _source_context(
+    explorer: ReadOnlyExplorer,
+    result: SearchResult,
+    *,
+    context_lines: int,
+) -> str:
+    """Read numbered source spanning a search hit and its surrounding lines."""
+    lines: list[SourceLine] = explorer.get_source_lines(
+        result.path,
+        start_line=max(1, result.start_line - context_lines),
+        end_line=result.end_line + context_lines,
+    )
+    return _numbered_source(lines)
+
+
+def _search_payloads(
+    explorer: ReadOnlyExplorer,
+    results: list[SearchResult],
+    *,
+    full: bool,
+    context_lines: int | None,
+) -> list[dict[str, object]]:
+    """Serialize search results and optionally attach numbered source context."""
+    return [
+        _result_payload(
+            result,
+            full=full,
+            context=(
+                _source_context(explorer, result, context_lines=context_lines)
+                if context_lines is not None
+                else None
+            ),
+        )
+        for result in results
+    ]
 
 
 def _echo_location(result: SearchResult) -> None:
@@ -134,12 +201,13 @@ def _echo_results(
     *,
     elapsed_ms: float,
     full: bool,
+    contexts: list[str] | None = None,
 ) -> None:
     if not results:
         click.echo(f"No results found.  ({elapsed_ms:.0f} ms)")
         return
     click.echo(f"Found {len(results)} result(s) in {elapsed_ms:.0f} ms:\n")
-    for result in results:
+    for index, result in enumerate(results):
         _echo_location(result)
         # Code is what `chunks --start-line` is for. Shipping it with every
         # hit was three quarters of a search result, and a caller that means
@@ -147,6 +215,9 @@ def _echo_results(
         if full:
             for line in result.snippet.splitlines():
                 click.echo(f"    {line}")
+            click.echo()
+        elif contexts is not None:
+            click.echo(contexts[index])
             click.echo()
 
 
@@ -171,7 +242,17 @@ def explore() -> None:
     is_flag=True,
     hidden=True,
 )
-def list_tools(prose: bool, toon: bool) -> None:  # noqa: ARG001
+@click.option(
+    "--db-path",
+    "--db_path",
+    type=click.Path(),
+    hidden=True,
+)
+def list_tools(
+    prose: bool,
+    toon: bool,  # noqa: ARG001
+    db_path: str | None,  # noqa: ARG001
+) -> None:
     """Describe exploration commands and the recommended agent workflow."""
     if not prose:
         _echo_toon(TOOL_MANIFEST)
@@ -246,6 +327,12 @@ def index_info(db_path: str, prose: bool, toon: bool) -> None:  # noqa: ARG001
     help="Include the matching code with every result.",
 )
 @click.option(
+    "--context",
+    "context_lines",
+    type=click.IntRange(min=0),
+    help="Include each matching chunk plus N surrounding numbered source lines.",
+)
+@click.option(
     "--db-path",
     "--db_path",
     default=DEFAULT_DB_PATH,
@@ -273,6 +360,7 @@ def semantic_search(
     include_path: tuple[str, ...],
     exclude_path: tuple[str, ...],
     full: bool,
+    context_lines: int | None,
     db_path: str,
     prose: bool,
     toon: bool,  # noqa: ARG001
@@ -290,11 +378,439 @@ def semantic_search(
             embedder=make_embedder(),
             options=options,
         )
+        payloads: list[dict[str, object]] = _search_payloads(
+            explorer,
+            results,
+            full=full,
+            context_lines=context_lines,
+        )
     elapsed_ms: float = (time.perf_counter() - started_at) * 1000
     if not prose:
-        _echo_toon([_result_payload(result, full=full) for result in results])
+        _echo_toon(payloads)
         return
-    _echo_results(results, elapsed_ms=elapsed_ms, full=full)
+    contexts: list[str] | None = (
+        [str(payload["context"]) for payload in payloads]
+        if context_lines is not None
+        else None
+    )
+    _echo_results(
+        results,
+        elapsed_ms=elapsed_ms,
+        full=full,
+        contexts=contexts,
+    )
+
+
+@dataclass
+class _EvidenceCandidate:
+    """Track one deduplicated search hit and the queries that selected it."""
+
+    result: SearchResult
+    queries: list[str]
+
+
+def _collect_evidence_candidates(
+    explorer: ReadOnlyExplorer,
+    queries: tuple[str, ...],
+    *,
+    embedder: Embedder,
+    per_query: int,
+    max_results: int,
+) -> list[_EvidenceCandidate]:
+    """Collect semantic hits round-robin so every query retains representation."""
+    anchor: str = queries[0]
+    search_queries: list[str] = [
+        anchor if index == 0 else f"{anchor}; {query}"
+        for index, query in enumerate(queries)
+    ]
+    groups: list[list[SearchResult]] = [
+        explorer.semantic_search(
+            [search_query],
+            embedder=embedder,
+            options=SearchOptions(
+                top_k=per_query,
+                exclude_paths=(".windsurf/%", ".cursor/%"),
+            ),
+        )
+        for search_query in search_queries
+    ]
+    candidates: list[_EvidenceCandidate] = []
+    by_location: dict[tuple[str, int, int], _EvidenceCandidate] = {}
+    for rank in range(per_query):
+        for query, results in zip(queries, groups, strict=True):
+            if rank >= len(results):
+                continue
+            result: SearchResult = results[rank]
+            key: tuple[str, int, int] = (
+                result.path,
+                result.start_line,
+                result.end_line,
+            )
+            existing: _EvidenceCandidate | None = by_location.get(key)
+            if existing is not None:
+                if query not in existing.queries:
+                    existing.queries.append(query)
+                continue
+            candidate = _EvidenceCandidate(result=result, queries=[query])
+            by_location[key] = candidate
+            candidates.append(candidate)
+            if len(candidates) == max_results:
+                return candidates
+    return candidates
+
+
+def _fallback_source(result: SearchResult, *, max_source_lines: int) -> str:
+    """Number a stored snippet when exact source reconstruction is unavailable."""
+    snippet_lines: list[str] = result.snippet.splitlines()[:max_source_lines]
+    width: int = len(str(result.start_line + len(snippet_lines) - 1))
+    return "\n".join(
+        f"{result.start_line + offset:>{width}}  {line}"
+        for offset, line in enumerate(snippet_lines)
+    )
+
+
+def _evidence_item(
+    explorer: ReadOnlyExplorer,
+    candidate: _EvidenceCandidate,
+    *,
+    evidence_id: str,
+    max_source_lines: int,
+) -> dict[str, object]:
+    """Build one cited evidence item with a bounded numbered source span."""
+    result: SearchResult = candidate.result
+    returned_end: int = min(
+        result.end_line,
+        result.start_line + max_source_lines - 1,
+    )
+    lines: list[SourceLine] = explorer.get_source_lines(
+        result.path,
+        start_line=result.start_line,
+        end_line=returned_end,
+    )
+    source: str = _numbered_source(lines) or _fallback_source(
+        result,
+        max_source_lines=max_source_lines,
+    )
+    return {
+        "id": evidence_id,
+        "queries": candidate.queries,
+        "path": result.path,
+        "start_line": result.start_line,
+        "end_line": returned_end,
+        "score": round(result.score, 3),
+        "chunk_kind": result.chunk_kind,
+        "symbol": result.symbol,
+        "source": source,
+        "source_truncated": returned_end < result.end_line,
+        "follow_up": (
+            f"smritikosh explore chunks --range {result.path} "
+            f"{result.start_line} {result.end_line}"
+        ),
+    }
+
+
+def _bounded_evidence_payload(
+    explorer: ReadOnlyExplorer,
+    queries: tuple[str, ...],
+    candidates: list[_EvidenceCandidate],
+    *,
+    max_source_lines: int,
+    max_chars: int,
+) -> dict[str, object]:
+    """Build the largest valid evidence payload fitting the character budget."""
+    payload: dict[str, object] = {
+        "version": 1,
+        "queries": list(queries),
+        "budget_chars": max_chars,
+        "truncated": False,
+        "evidence": [],
+        "outlines": [],
+        "outlines_truncated": False,
+    }
+    evidence: list[dict[str, object]] = cast(
+        list[dict[str, object]],
+        payload["evidence"],
+    )
+    for index, candidate in enumerate(candidates, start=1):
+        item: dict[str, object] = _evidence_item(
+            explorer,
+            candidate,
+            evidence_id=f"E{index}",
+            max_source_lines=max_source_lines,
+        )
+        evidence.append(item)
+        payload["truncated"] = index < len(candidates)
+        if len(toons.dumps(payload)) + 1 > max_chars:
+            evidence.pop()
+            payload["truncated"] = True
+            break
+    outlines: list[dict[str, object]] = cast(
+        list[dict[str, object]],
+        payload["outlines"],
+    )
+    paths: list[str] = list(dict.fromkeys(str(item["path"]) for item in evidence))
+    for path in paths:
+        entries: list[OutlineEntry] = explorer.get_outline(path)
+        outline: dict[str, object] = {
+            "path": path,
+            "definitions": [asdict(entry) for entry in entries[:30]],
+            "truncated": len(entries) > 30,
+        }
+        outlines.append(outline)
+        if len(toons.dumps(payload)) + 1 > max_chars:
+            outlines.pop()
+            payload["outlines_truncated"] = True
+            break
+    return payload
+
+
+@explore.command("evidence")
+@click.argument("queries", nargs=-1, required=True)
+@click.option(
+    "--per-query",
+    default=3,
+    show_default=True,
+    type=click.IntRange(min=1, max=10),
+)
+@click.option(
+    "--max-results",
+    default=18,
+    show_default=True,
+    type=click.IntRange(min=1, max=30),
+)
+@click.option(
+    "--max-source-lines",
+    default=80,
+    show_default=True,
+    type=click.IntRange(min=1, max=200),
+)
+@click.option(
+    "--max-chars",
+    default=35_000,
+    show_default=True,
+    type=click.IntRange(min=1_000),
+)
+@click.option(
+    "--db-path",
+    "--db_path",
+    default=DEFAULT_DB_PATH,
+    show_default=True,
+    type=click.Path(exists=True, dir_okay=False),
+)
+def collect_evidence(
+    queries: tuple[str, ...],
+    per_query: int,
+    max_results: int,
+    max_source_lines: int,
+    max_chars: int,
+    db_path: str,
+) -> None:
+    """Return bounded source evidence across several focused semantic queries."""
+    embedder: Embedder = make_embedder()
+    with ReadOnlyExplorer(db_path) as explorer:
+        candidates: list[_EvidenceCandidate] = _collect_evidence_candidates(
+            explorer,
+            queries,
+            embedder=embedder,
+            per_query=per_query,
+            max_results=max_results,
+        )
+        payload: dict[str, object] = _bounded_evidence_payload(
+            explorer,
+            queries,
+            candidates,
+            max_source_lines=max_source_lines,
+            max_chars=max_chars,
+        )
+    click.echo(toons.dumps(payload))
+
+
+def _parse_batch_requests(stream: TextIO) -> list[dict[str, object]]:
+    """Parse one JSON object per non-empty input line."""
+    requests: list[dict[str, object]] = []
+    for line_number, line in enumerate(stream, start=1):
+        if not line.strip():
+            continue
+        try:
+            value: object = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise click.ClickException(
+                f"Invalid JSON on batch line {line_number}: {exc.msg}"
+            ) from exc
+        if not isinstance(value, dict):
+            raise click.ClickException(
+                f"Batch line {line_number} must be a JSON object"
+            )
+        requests.append(cast(dict[str, object], value))
+    if not requests:
+        raise click.ClickException("Batch input contains no requests")
+    return requests
+
+
+def _batch_int(
+    request: dict[str, object],
+    name: str,
+    *,
+    default: int | None = None,
+    minimum: int = 0,
+) -> int | None:
+    """Read an optional bounded integer from a batch request."""
+    value: object = request.get(name, default)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise click.ClickException(
+            f"Batch field {name!r} must be an integer of at least {minimum}"
+        )
+    return value
+
+
+def _batch_string(request: dict[str, object], name: str) -> str:
+    """Read a required non-empty string from a batch request."""
+    value: object = request.get(name)
+    if not isinstance(value, str) or not value:
+        raise click.ClickException(f"Batch field {name!r} must be a non-empty string")
+    return value
+
+
+def _batch_strings(request: dict[str, object], name: str) -> list[str]:
+    """Read a required non-empty string list from a batch request."""
+    value: object = request.get(name)
+    if (
+        not isinstance(value, list)
+        or not value
+        or any(not isinstance(item, str) or not item for item in value)
+    ):
+        raise click.ClickException(
+            f"Batch field {name!r} must be a non-empty string array"
+        )
+    return cast(list[str], value)
+
+
+def _batch_queries(request: dict[str, object]) -> list[str]:
+    """Read plural queries while accepting the common singular spelling."""
+    if "queries" in request:
+        return _batch_strings(request, "queries")
+    return [_batch_string(request, "query")]
+
+
+def _batch_operation(request: dict[str, object]) -> str:
+    """Read an operation name while accepting the common tool alias."""
+    operation: object = request.get("op", request.get("tool"))
+    if not isinstance(operation, str):
+        raise click.ClickException("Batch request requires string field 'op'")
+    return operation
+
+
+def _run_batch_search(
+    explorer: ReadOnlyExplorer,
+    request: dict[str, object],
+    *,
+    embedder: Embedder,
+) -> dict[str, object]:
+    """Execute one semantic-search batch request."""
+    top_k: int | None = _batch_int(request, "top_k", default=10, minimum=1)
+    context_lines: int | None = _batch_int(request, "context")
+    results: list[SearchResult] = explorer.semantic_search(
+        _batch_queries(request),
+        embedder=embedder,
+        options=SearchOptions(top_k=cast(int, top_k)),
+    )
+    payloads: list[dict[str, object]] = _search_payloads(
+        explorer,
+        results,
+        full=request.get("full") is True,
+        context_lines=context_lines,
+    )
+    return {"op": "search", "results": payloads}
+
+
+def _run_batch_chunks(
+    explorer: ReadOnlyExplorer,
+    request: dict[str, object],
+) -> dict[str, object]:
+    """Execute one outline or explicitly ranged source request."""
+    path: str = _batch_string(request, "path")
+    start_line: int | None = _batch_int(request, "start_line", minimum=1)
+    end_line: int | None = _batch_int(request, "end_line", minimum=1)
+    if start_line is None and end_line is None:
+        entries: list[OutlineEntry] = explorer.get_outline(path)
+        return {"op": "chunks", "outline": [asdict(entry) for entry in entries]}
+    lines: list[SourceLine] = explorer.get_source_lines(
+        path,
+        start_line=start_line,
+        end_line=end_line,
+    )
+    return {"op": "chunks", "lines": [asdict(line) for line in lines]}
+
+
+def _run_batch_text(
+    explorer: ReadOnlyExplorer,
+    request: dict[str, object],
+) -> dict[str, object]:
+    """Execute one exact-text batch request."""
+    limit: int | None = _batch_int(request, "limit", default=20, minimum=1)
+    path_value: object = request.get("path")
+    if path_value is not None and not isinstance(path_value, str):
+        raise click.ClickException("Batch field 'path' must be a string")
+    matches: list[TextMatch] = explorer.find_text_lines(
+        _batch_string(request, "text"),
+        path=cast(str | None, path_value),
+        limit=cast(int, limit),
+    )
+    return {"op": "text", "matches": [asdict(match) for match in matches]}
+
+
+def _run_batch_paths(
+    explorer: ReadOnlyExplorer,
+    request: dict[str, object],
+) -> dict[str, object]:
+    """Execute one indexed-path batch request."""
+    limit: int | None = _batch_int(request, "limit", default=50, minimum=1)
+    paths: list[str] = explorer.find_paths(
+        _batch_string(request, "pattern"),
+        limit=cast(int, limit),
+    )
+    return {"op": "paths", "paths": paths}
+
+
+@explore.command("batch")
+@click.argument("requests_file", type=click.File("r"), default="-")
+@click.option(
+    "--db-path",
+    "--db_path",
+    default=DEFAULT_DB_PATH,
+    show_default=True,
+    type=click.Path(exists=True, dir_okay=False),
+)
+def batch_requests(requests_file: TextIO, db_path: str) -> None:
+    """Execute NDJSON search and chunks requests with warm shared resources."""
+    requests: list[dict[str, object]] = _parse_batch_requests(requests_file)
+    responses: list[dict[str, object]] = []
+    embedder: Embedder | None = None
+    with ReadOnlyExplorer(db_path) as explorer:
+        for request in requests:
+            operation: str = _batch_operation(request)
+            if operation == "search":
+                if embedder is None:
+                    embedder = make_embedder()
+                responses.append(
+                    _run_batch_search(explorer, request, embedder=embedder)
+                )
+            elif operation == "chunks":
+                responses.append(_run_batch_chunks(explorer, request))
+            elif operation == "text":
+                responses.append(_run_batch_text(explorer, request))
+            elif operation == "paths":
+                responses.append(_run_batch_paths(explorer, request))
+            elif operation == "info":
+                responses.append({"op": "info", "info": asdict(explorer.index_info())})
+            else:
+                raise click.ClickException(
+                    f"Unsupported batch operation {operation!r}; "
+                    "expected search, chunks, text, paths, or info"
+                )
+    _echo_toon(responses)
 
 
 @explore.command("paths")
@@ -386,9 +902,17 @@ def text_search(
 
 
 @explore.command("chunks")
-@click.argument("path")
+@click.argument("path", required=False)
 @click.option("--start-line", "--start_line", type=click.IntRange(min=1))
 @click.option("--end-line", "--end_line", type=click.IntRange(min=1))
+@click.option(
+    "--range",
+    "ranges",
+    nargs=3,
+    multiple=True,
+    type=(str, click.IntRange(min=1), click.IntRange(min=1)),
+    help="Read PATH START END; repeat to retrieve several ranges in one process.",
+)
 @click.option(
     "--full",
     is_flag=True,
@@ -417,9 +941,10 @@ def text_search(
     hidden=True,
 )
 def get_chunks(
-    path: str,
+    path: str | None,
     start_line: int | None,
     end_line: int | None,
+    ranges: tuple[tuple[str, int, int], ...],
     full: bool,
     db_path: str,
     prose: bool,
@@ -435,6 +960,29 @@ def get_chunks(
     holding a colon, and code is full of them, so a table of lines costs
     more than the numbered text it would replace and reads worse.
     """
+    if ranges:
+        if path is not None or start_line is not None or end_line is not None or full:
+            raise click.UsageError(
+                "--range cannot be combined with PATH, line options, or --full"
+            )
+        with ReadOnlyExplorer(db_path) as explorer:
+            for index, (range_path, range_start, range_end) in enumerate(ranges):
+                if range_start > range_end:
+                    raise click.BadParameter(
+                        "START cannot be greater than END",
+                        param_hint="--range",
+                    )
+                lines: list[SourceLine] = explorer.get_source_lines(
+                    range_path,
+                    start_line=range_start,
+                    end_line=range_end,
+                )
+                if index:
+                    click.echo()
+                _echo_source_lines(lines, path=range_path)
+        return
+    if path is None:
+        raise click.UsageError("Provide PATH or at least one --range PATH START END")
     ranged: bool = start_line is not None or end_line is not None
     try:
         with ReadOnlyExplorer(db_path) as explorer:

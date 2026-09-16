@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -35,10 +36,17 @@ def test_should_describe_all_exploration_tools_as_toon() -> None:
     # Assert
     assert result.exit_code == 0
     manifest = toons.loads(result.output)
-    assert list(manifest["tools"]) == ["search", "chunks", "text", "paths", "info"]
+    assert list(manifest["tools"]) == [
+        "search",
+        "chunks",
+        "text",
+        "paths",
+        "info",
+        "batch",
+        "evidence",
+    ]
     assert "loads the embedding model" in manifest["tools"]["search"]
-    # The flow is the point of the manifest: one call finds, the next reads.
-    assert "--start-line" in manifest["flow"]
+    assert "run evidence" in manifest["flow"]
 
 
 def test_should_emit_toon_without_being_asked_and_ignore_the_pre_toon_flags() -> None:
@@ -54,7 +62,7 @@ def test_should_emit_toon_without_being_asked_and_ignore_the_pre_toon_flags() ->
     # Assert
     assert [result.exit_code for result in results] == [0, 0, 0, 0]
     assert len({result.output for result in results}) == 1
-    assert results[0].output.startswith("version: 2")
+    assert results[0].output.startswith("version: 4")
 
 
 def test_should_emit_machine_readable_index_info(tmp_path: Path) -> None:
@@ -404,3 +412,322 @@ def test_should_accept_manifest_argument_names_for_semantic_search(
     # Assert
     assert result.exit_code == 0
     explorer.semantic_search.assert_called_once()
+
+
+def test_should_include_numbered_source_context_with_search_results(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    db_path: Path = tmp_path / "index.duckdb"
+    db_path.touch()
+    explorer = _mock_explorer()
+    explorer.semantic_search.return_value = [
+        SearchResult("src/a.py", 3, 4, "def a():\n    pass", 0.91, "function", "a")
+    ]
+    explorer.get_source_lines.return_value = [
+        SourceLine(1, "import os"),
+        SourceLine(2, ""),
+        SourceLine(3, "def a():"),
+        SourceLine(4, "    pass"),
+        SourceLine(5, ""),
+        SourceLine(6, "TOTAL = 1"),
+    ]
+
+    # Act
+    with (
+        patch(
+            "smritikosh.exploration_cli.ReadOnlyExplorer",
+            return_value=explorer,
+        ),
+        patch(
+            "smritikosh.exploration_cli.make_embedder",
+            return_value=MagicMock(),
+        ),
+    ):
+        result = CliRunner().invoke(
+            main,
+            [
+                "explore",
+                "search",
+                "anything",
+                "--context",
+                "2",
+                "--db-path",
+                str(db_path),
+            ],
+        )
+
+    # Assert
+    assert result.exit_code == 0
+    explorer.get_source_lines.assert_called_once_with(
+        "src/a.py",
+        start_line=1,
+        end_line=6,
+    )
+    payload = toons.loads(result.output)[0]
+    assert payload["context"] == (
+        "1  import os\n2  \n3  def a():\n4      pass\n5  \n6  TOTAL = 1"
+    )
+
+
+def test_should_read_multiple_source_ranges_with_one_chunks_command(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    db_path: Path = tmp_path / "index.duckdb"
+    db_path.touch()
+    explorer = _mock_explorer()
+    explorer.get_source_lines.side_effect = [
+        [SourceLine(1, "first")],
+        [SourceLine(7, "second")],
+    ]
+
+    # Act
+    with patch(
+        "smritikosh.exploration_cli.ReadOnlyExplorer",
+        return_value=explorer,
+    ):
+        result = CliRunner().invoke(
+            main,
+            [
+                "explore",
+                "chunks",
+                "--range",
+                "src/a.py",
+                "1",
+                "2",
+                "--range",
+                "src/b.py",
+                "7",
+                "8",
+                "--db-path",
+                str(db_path),
+            ],
+        )
+
+    # Assert
+    assert result.exit_code == 0
+    assert explorer.get_source_lines.call_count == 2
+    assert result.output == ("src/a.py:1-1\n1  first\n\nsrc/b.py:7-7\n7  second\n")
+
+
+def test_should_reuse_explorer_and_embedder_for_batch_requests(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    db_path: Path = tmp_path / "index.duckdb"
+    db_path.touch()
+    explorer = _mock_explorer()
+    explorer.semantic_search.return_value = [
+        SearchResult("src/a.py", 1, 2, "def a():\n    pass", 0.9, "function", "a")
+    ]
+    explorer.get_source_lines.return_value = [SourceLine(1, "def a():")]
+    embedder = MagicMock()
+    requests = [
+        {"op": "search", "queries": ["anything"], "top_k": 3},
+        {
+            "op": "chunks",
+            "path": "src/a.py",
+            "start_line": 1,
+            "end_line": 1,
+        },
+    ]
+    input_text: str = "\n".join(json.dumps(request) for request in requests)
+
+    # Act
+    with (
+        patch(
+            "smritikosh.exploration_cli.ReadOnlyExplorer",
+            return_value=explorer,
+        ) as explorer_factory,
+        patch(
+            "smritikosh.exploration_cli.make_embedder",
+            return_value=embedder,
+        ) as embedder_factory,
+    ):
+        result = CliRunner().invoke(
+            main,
+            ["explore", "batch", "--db-path", str(db_path)],
+            input=input_text,
+        )
+
+    # Assert
+    assert result.exit_code == 0
+    explorer_factory.assert_called_once_with(str(db_path))
+    embedder_factory.assert_called_once_with()
+    output = toons.loads(result.output)
+    assert [item["op"] for item in output] == ["search", "chunks"]
+    assert output[0]["results"][0]["path"] == "src/a.py"
+    assert output[1]["lines"] == [{"line_number": 1, "text": "def a():"}]
+
+
+def test_should_return_outline_when_batch_chunks_has_no_range(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    db_path: Path = tmp_path / "index.duckdb"
+    db_path.touch()
+    explorer = _mock_explorer()
+    explorer.get_outline.return_value = [
+        OutlineEntry("load", "function", 3, 20),
+    ]
+
+    # Act
+    with patch(
+        "smritikosh.exploration_cli.ReadOnlyExplorer",
+        return_value=explorer,
+    ):
+        result = CliRunner().invoke(
+            main,
+            ["explore", "batch", "--db-path", str(db_path)],
+            input=json.dumps({"op": "chunks", "path": "src/a.py"}),
+        )
+
+    # Assert
+    assert result.exit_code == 0
+    explorer.get_outline.assert_called_once_with("src/a.py")
+    explorer.get_source_lines.assert_not_called()
+    assert toons.loads(result.output)[0]["outline"] == [
+        {
+            "symbol": "load",
+            "chunk_kind": "function",
+            "start_line": 3,
+            "end_line": 20,
+        }
+    ]
+
+
+def test_should_accept_batch_aliases_and_exact_text_operation(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    db_path: Path = tmp_path / "index.duckdb"
+    db_path.touch()
+    explorer = _mock_explorer()
+    explorer.semantic_search.return_value = []
+    explorer.find_text_lines.return_value = [
+        TextMatch("src/a.py", 4, "TOTAL = 1", True)
+    ]
+    requests = [
+        {"tool": "search", "query": "anything"},
+        {"op": "text", "text": "TOTAL"},
+    ]
+
+    # Act
+    with (
+        patch(
+            "smritikosh.exploration_cli.ReadOnlyExplorer",
+            return_value=explorer,
+        ),
+        patch(
+            "smritikosh.exploration_cli.make_embedder",
+            return_value=MagicMock(),
+        ),
+    ):
+        result = CliRunner().invoke(
+            main,
+            ["explore", "batch", "--db-path", str(db_path)],
+            input="\n".join(json.dumps(request) for request in requests),
+        )
+
+    # Assert
+    assert result.exit_code == 0
+    output = toons.loads(result.output)
+    assert [item["op"] for item in output] == ["search", "text"]
+    assert output[1]["matches"][0]["line_number"] == 4
+
+
+def test_should_accept_ignored_db_path_for_tools(tmp_path: Path) -> None:
+    # Arrange
+    db_path: Path = tmp_path / "index.duckdb"
+    db_path.touch()
+
+    # Act
+    result = CliRunner().invoke(
+        main,
+        ["explore", "tools", "--db-path", str(db_path)],
+    )
+
+    # Assert
+    assert result.exit_code == 0
+    assert toons.loads(result.output)["version"] == 4
+
+
+def test_should_build_bounded_evidence_from_multiple_queries(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    db_path: Path = tmp_path / "index.duckdb"
+    db_path.touch()
+    explorer = _mock_explorer()
+    shared = SearchResult(
+        "src/a.py",
+        3,
+        4,
+        "def publish():\n    pass",
+        0.91,
+        "function",
+        "publish",
+    )
+    explorer.semantic_search.side_effect = [
+        [shared],
+        [
+            shared,
+            SearchResult(
+                "tests/test_a.py",
+                8,
+                9,
+                "def test_publish():\n    pass",
+                0.85,
+                "function",
+                "test_publish",
+            ),
+        ],
+    ]
+    explorer.get_source_lines.side_effect = [
+        [SourceLine(3, "def publish():"), SourceLine(4, "    pass")],
+        [SourceLine(8, "def test_publish():"), SourceLine(9, "    pass")],
+    ]
+    embedder = MagicMock()
+
+    # Act
+    with (
+        patch(
+            "smritikosh.exploration_cli.ReadOnlyExplorer",
+            return_value=explorer,
+        ),
+        patch(
+            "smritikosh.exploration_cli.make_embedder",
+            return_value=embedder,
+        ) as embedder_factory,
+    ):
+        result = CliRunner().invoke(
+            main,
+            [
+                "explore",
+                "evidence",
+                "publication flow",
+                "publication tests",
+                "--per-query",
+                "2",
+                "--max-chars",
+                "2000",
+                "--db-path",
+                str(db_path),
+            ],
+        )
+
+    # Assert
+    assert result.exit_code == 0
+    embedder_factory.assert_called_once_with()
+    assert explorer.semantic_search.call_count == 2
+    assert explorer.semantic_search.call_args_list[1].args[0] == [
+        "publication flow; publication tests"
+    ]
+    payload = toons.loads(result.output)
+    assert len(result.output) <= 2000
+    assert len(payload["evidence"]) == 2
+    assert payload["evidence"][0]["queries"] == [
+        "publication flow",
+        "publication tests",
+    ]
