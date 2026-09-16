@@ -26,18 +26,26 @@ from smritikosh.exploration import (
     SourceLine,
     TextMatch,
 )
-from smritikosh.models import EvidenceOptions, EvidencePack, SearchResult
+from smritikosh.models import (
+    DiscoveryOptions,
+    DiscoveryPack,
+    EvidenceOptions,
+    EvidencePack,
+    SearchResult,
+)
 from smritikosh.ports.embedder import Embedder
+from smritikosh.retrieval.discovery import DiscoveryService
 from smritikosh.retrieval.service import EvidenceService
 
 __all__ = ["explore"]
 
 TOOL_MANIFEST: Final[dict[str, object]] = {
-    "version": 5,
+    "version": 6,
     "flow": (
-        "For broad questions run evidence with 4-8 focused query arguments, "
-        "then at most one chunks --range follow-up. Use batch for already-known "
-        "mixed operations. Never request whole-file source unless essential."
+        "For broad questions run discover with focused query arguments and "
+        "exact --anchor values, then evidence for the candidate files. Use "
+        "batch for already-known mixed operations. Never request whole-file "
+        "source unless essential."
     ),
     # One line per tool: the manifest is read by an agent on every session, so
     # its own size is a cost, and nested argument tables cost more than they
@@ -69,6 +77,11 @@ TOOL_MANIFEST: Final[dict[str, object]] = {
             "explore evidence QUERY... [--per-query N] [--max-results N] "
             "[--max-chars N] — bounded dense+BM25 evidence fused with RRF, "
             "selected for facet coverage and diversity, then expanded one hop"
+        ),
+        "discover": (
+            "explore discover QUERY... [--anchor TEXT] [--max-files N] "
+            "[--evidence-per-file N] [--max-chars N] — high-recall candidate "
+            "files from semantic, BM25, exact-anchor, and domain-reference signals"
         ),
     },
     "notes": (
@@ -460,6 +473,126 @@ def _bounded_toon_payload(
         payload["missing_facets"] = [facet for facet in facets if facet not in covered]
         encoded = toons.dumps(payload)
     return encoded
+
+
+def _discovery_pack_payload(
+    pack: DiscoveryPack,
+    *,
+    queries: tuple[str, ...],
+    anchors: tuple[str, ...],
+    max_chars: int,
+) -> dict[str, object]:
+    """Render compact file candidates without returning source text."""
+    facet_ids = {query: f"Q{index}" for index, query in enumerate(queries, start=1)}
+    anchor_ids = {anchor: f"A{index}" for index, anchor in enumerate(anchors, start=1)}
+    return {
+        "version": 1,
+        "budget_chars": max_chars,
+        "queries": list(queries),
+        "anchors": list(anchors),
+        "truncated": pack.truncated,
+        "files": [
+            {
+                "path": item.path,
+                "score": item.score,
+                "signals": list(item.signals),
+                "matched_facets": [facet_ids[facet] for facet in item.matched_facets],
+                "matched_anchors": [
+                    anchor_ids[anchor] for anchor in item.matched_anchors
+                ],
+                "referenced_by": list(item.referenced_by),
+                "evidence": [asdict(evidence) for evidence in item.evidence],
+            }
+            for item in pack.files
+        ],
+    }
+
+
+def _bounded_discovery_payload(
+    payload: dict[str, object],
+    *,
+    max_chars: int,
+) -> str:
+    """Trim complete file candidates until serialized TOON fits the limit."""
+    files = cast(list[dict[str, object]], payload["files"])
+    encoded = toons.dumps(payload)
+    while len(encoded) + 1 > max_chars and files:
+        files.pop()
+        payload["truncated"] = True
+        encoded = toons.dumps(payload)
+    return encoded
+
+
+@explore.command("discover")
+@click.argument("queries", nargs=-1, required=True)
+@click.option("--anchor", multiple=True)
+@click.option(
+    "--max-files",
+    default=30,
+    show_default=True,
+    type=click.IntRange(min=1, max=100, clamp=True),
+)
+@click.option(
+    "--evidence-per-file",
+    default=2,
+    show_default=True,
+    type=click.IntRange(min=1, max=3, clamp=True),
+)
+@click.option(
+    "--max-chars",
+    default=12_000,
+    show_default=True,
+    type=click.IntRange(min=1_000, max=45_000, clamp=True),
+)
+@click.option(
+    "--db-path",
+    "--db_path",
+    default=DEFAULT_DB_PATH,
+    show_default=True,
+    type=click.Path(exists=True, dir_okay=False),
+)
+def discover_files(
+    queries: tuple[str, ...],
+    anchor: tuple[str, ...],
+    max_files: int,
+    evidence_per_file: int,
+    max_chars: int,
+    db_path: str,
+) -> None:
+    """Discover relevant files using hybrid and exact retrieval signals."""
+    queries = tuple(query[:500] for query in queries[:8])
+    anchors = tuple(value[:200] for value in anchor[:8])
+    embedder: Embedder = make_embedder()
+    reader = DuckDBSourceReader(db_path)
+    try:
+        lexical_store = DuckDBBm25Store(db_path, read_only=True)
+        try:
+            service = DiscoveryService(
+                (
+                    DuckDBDenseRetriever(reader, embedder),
+                    DuckDBLexicalRetriever(lexical_store, reader),
+                ),
+                reader,
+            )
+            pack = service.retrieve(
+                queries,
+                anchors=anchors,
+                options=DiscoveryOptions(
+                    max_files=max_files,
+                    evidence_per_file=evidence_per_file,
+                ),
+            )
+        finally:
+            lexical_store.close()
+    finally:
+        reader.close()
+    payload = _discovery_pack_payload(
+        pack,
+        queries=queries,
+        anchors=anchors,
+        max_chars=max_chars,
+    )
+    click.echo(_bounded_discovery_payload(payload, max_chars=max_chars))
 
 
 @explore.command("evidence")

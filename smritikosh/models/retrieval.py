@@ -9,6 +9,10 @@ from smritikosh.models.types import SearchResult
 
 __all__ = [
     "CandidateScore",
+    "DiscoveredFile",
+    "DiscoveryEvidence",
+    "DiscoveryOptions",
+    "DiscoveryPack",
     "EvidenceCandidate",
     "EvidenceItem",
     "EvidenceOptions",
@@ -19,6 +23,7 @@ __all__ = [
     "RetrievalChannel",
     "SearchOptions",
     "SourceLine",
+    "TextFileMatch",
     "TextMatch",
 ]
 
@@ -79,6 +84,68 @@ class TextMatch:
     line_number: int
     text: str
     exact_line: bool
+
+
+@dataclass(frozen=True)
+class TextFileMatch:
+    """Represent one indexed file containing an exact text anchor."""
+
+    path: str
+    start_line: int
+    end_line: int
+    symbol: str | None = None
+
+
+@dataclass(frozen=True)
+class DiscoveryEvidence:
+    """Locate one representative section without returning its source."""
+
+    start_line: int
+    end_line: int
+    symbol: str | None = None
+
+
+@dataclass(frozen=True)
+class DiscoveredFile:
+    """Summarize why one indexed file is a retrieval candidate."""
+
+    path: str
+    score: float
+    signals: tuple[str, ...]
+    matched_facets: tuple[str, ...]
+    matched_anchors: tuple[str, ...]
+    referenced_by: tuple[str, ...]
+    evidence: tuple[DiscoveryEvidence, ...]
+
+
+@dataclass(frozen=True)
+class DiscoveryOptions:
+    """Bound high-recall candidate-file discovery."""
+
+    candidates_per_channel: int = 40
+    max_files: int = 30
+    evidence_per_file: int = 2
+    max_exact_files: int = 1_000
+    max_indexed_paths: int = 10_000
+    max_reference_files: int = 12
+    rrf_k: int = 60
+    exclude_paths: tuple[str, ...] = (
+        ".claude/%",
+        ".cursor/%",
+        ".git/%",
+        ".windsurf/%",
+        ".venv/%",
+        "node_modules/%",
+        "vendor/%",
+    )
+
+
+@dataclass(frozen=True)
+class DiscoveryPack:
+    """Return compact file candidates and whether the file cap was reached."""
+
+    files: tuple[DiscoveredFile, ...]
+    truncated: bool
 
 
 @dataclass(frozen=True)

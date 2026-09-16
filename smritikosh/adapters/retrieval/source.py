@@ -17,6 +17,7 @@ from smritikosh.models import (
     SearchOptions,
     SearchResult,
     SourceLine,
+    TextFileMatch,
     TextMatch,
 )
 
@@ -30,6 +31,7 @@ __all__ = [
     "OutlineEntry",
     "SearchOptions",
     "SourceLine",
+    "TextFileMatch",
     "TextMatch",
 ]
 
@@ -292,6 +294,52 @@ class DuckDBSourceReader:
         )
         return ordered[:limit]
 
+    def find_text_files(
+        self,
+        text: str,
+        *,
+        limit: int = 1_000,
+    ) -> list[TextFileMatch]:
+        """Return one representative exact-text chunk per matching file."""
+        self._validate_limit(limit)
+        rows: list[tuple[str, str | None, str, str]] = self._connection.execute(
+            """
+            WITH matches AS (
+                SELECT id, name, path, metadata,
+                       row_number() OVER (
+                           PARTITION BY path
+                           ORDER BY CAST(
+                               json_extract(metadata, '$.start_line') AS INTEGER
+                           )
+                       ) AS path_rank
+                FROM nodes
+                WHERE kind = 'chunk'
+                  AND contains(
+                      lower(json_extract_string(metadata, '$.text')),
+                      lower(?)
+                  )
+            )
+            SELECT id, name, path, metadata
+            FROM matches
+            WHERE path_rank = 1
+            ORDER BY path
+            LIMIT ?
+            """,
+            [text, limit],
+        ).fetchall()
+        matches: list[TextFileMatch] = []
+        for row in rows:
+            chunk = self._to_chunk(row)
+            matches.append(
+                TextFileMatch(
+                    path=chunk.path,
+                    start_line=chunk.start_line,
+                    end_line=chunk.end_line,
+                    symbol=chunk.symbol,
+                )
+            )
+        return matches
+
     def get_chunks(
         self,
         path: str,
@@ -425,17 +473,31 @@ class DuckDBSourceReader:
             end_line=end_line,
         )
         lines: dict[int, str] = {}
+        # Narrow chunks are more precise than overlapping section windows.
+        # Populate them first and keep their line when a wider chunk overlaps.
+        chunks.sort(
+            key=lambda chunk: (
+                chunk.end_line - chunk.start_line,
+                chunk.start_line,
+            )
+        )
         for chunk in chunks:
-            chunk_lines: list[str] = chunk.text.split("\n")
-            if len(chunk_lines) != chunk.end_line - chunk.start_line + 1:
-                continue
+            chunk_lines: list[str] = chunk.text.splitlines()
+            source_span: int = chunk.end_line - chunk.start_line + 1
+            if len(chunk_lines) != source_span:
+                if chunk.chunk_kind != "section" or len(chunk_lines) < source_span:
+                    continue
+                # Markdown and JSON section chunks prepend heading/key context
+                # for retrieval. Their source range covers only the body, which
+                # is the final ``source_span`` lines of the stored chunk.
+                chunk_lines = chunk_lines[-source_span:]
             for offset, text in enumerate(chunk_lines):
                 number: int = chunk.start_line + offset
                 if start_line is not None and number < start_line:
                     continue
                 if end_line is not None and number > end_line:
                     continue
-                lines[number] = text
+                lines.setdefault(number, text)
         return [
             SourceLine(line_number=number, text=lines[number])
             for number in sorted(lines)

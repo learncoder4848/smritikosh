@@ -7,6 +7,7 @@ from smritikosh.models.retrieval import (
     OutlineEntry,
     SearchOptions,
     SourceLine,
+    TextFileMatch,
     TextMatch,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     "ReadOnlyExplorer",
     "SearchOptions",
     "SourceLine",
+    "TextFileMatch",
     "TextMatch",
 ]

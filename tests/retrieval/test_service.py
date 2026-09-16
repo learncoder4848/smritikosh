@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from smritikosh.models import SearchResult
 from smritikosh.models.retrieval import (
+    CandidateScore,
+    EvidenceCandidate,
     EvidenceOptions,
     IndexedChunk,
     OutlineEntry,
     RetrievalChannel,
     SourceLine,
 )
+from smritikosh.retrieval.expansion import EvidenceExpander
 from smritikosh.retrieval.service import EvidenceService
 
 
@@ -101,4 +104,37 @@ def test_should_return_observable_coverage_for_every_facet() -> None:
     assert [item.result.path for item in pack.items] == [
         "src/flow.py",
         "src/retry.py",
+    ]
+
+
+def test_should_keep_distinct_chunks_from_the_same_markdown_section() -> None:
+    seeds = [
+        EvidenceCandidate(
+            result=SearchResult(
+                "Transaction_System.md",
+                start,
+                end,
+                snippet,
+                0.9,
+                "section",
+                "Transaction Lifecycle Management",
+                chunk_id,
+            ),
+            facets={"transaction lifecycle"},
+            score=CandidateScore(fused=0.1),
+        )
+        for start, end, snippet, chunk_id in (
+            (20, 42, "states and statuses", "lifecycle-1"),
+            (43, 46, "reversal versioning", "lifecycle-2"),
+        )
+    ]
+
+    expanded = EvidenceExpander(_Reader()).expand(
+        seeds,
+        options=EvidenceOptions(max_results=2, max_dependencies_per_seed=0),
+    )
+
+    assert [item.result.chunk_id for item in expanded] == [
+        "lifecycle-1",
+        "lifecycle-2",
     ]

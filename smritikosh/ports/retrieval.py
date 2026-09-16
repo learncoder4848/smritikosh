@@ -11,6 +11,7 @@ from smritikosh.models.retrieval import (
     RetrievalChannel,
     SearchOptions,
     SourceLine,
+    TextFileMatch,
     TextMatch,
 )
 
@@ -45,6 +46,9 @@ class SourceReader(Protocol):
         path: str | None = None,
         limit: int = 20,
     ) -> list[TextMatch]: ...
+
+    def find_text_files(self, text: str, *, limit: int = 1_000) -> list[TextFileMatch]:
+        """Return at most one exact-anchor location per indexed file."""
 
     def get_chunks(
         self,
