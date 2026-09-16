@@ -33,16 +33,9 @@ class HybridRetriever:
         ranked: dict[str, dict[RetrievalChannel, list[SearchResult]]] = {}
         for facet in facets:
             query: str = queries[facet]
-            lowered: str = query.lower()
-            documentation_requested: bool = any(
-                term in lowered for term in ("documentation", "docs", "readme")
-            )
-            exclusions: tuple[str, ...] = options.exclude_paths
-            if not documentation_requested:
-                exclusions += ("docs/%", "%/README.md", "%/README.mdx")
             search_options = SearchOptions(
                 top_k=options.candidates_per_channel,
-                exclude_paths=exclusions,
+                exclude_paths=options.exclude_paths,
             )
             ranked[facet] = {
                 retriever.channel: retriever.retrieve(
