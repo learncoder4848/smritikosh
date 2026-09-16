@@ -25,6 +25,7 @@ from smritikosh.indexing.pipeline._stages import _chunk, _extract, _parse
 from smritikosh.indexing.strategies._helpers import budget_chars
 from smritikosh.models import Chunk, SourceFile
 from smritikosh.ports.embedder import Embedder
+from smritikosh.ports.retrieval import LexicalStore
 from smritikosh.ports.storage import StorageAdapter
 from smritikosh.ports.vector_store import VectorStore
 
@@ -34,6 +35,7 @@ from smritikosh.ports.vector_store import VectorStore
 EMBEDDER: ContextKey[Embedder] = ContextKey("embedder", detect_change=True)
 STORAGE: ContextKey[StorageAdapter] = ContextKey("storage")
 VECTOR_STORE: ContextKey[VectorStore] = ContextKey("vector_store")
+LEXICAL_STORE: ContextKey[LexicalStore] = ContextKey("lexical_store")
 
 
 # ── Per-chunk embedding ───────────────────────────────────────────────────────
@@ -87,6 +89,7 @@ async def process_file(source: SourceFile) -> None:
     """Parse → extract → chunk → embed one source file incrementally."""
     storage = use_context(STORAGE)
     vector_store = use_context(VECTOR_STORE)
+    lexical_store = use_context(LEXICAL_STORE)
 
     old_ids = storage.get_chunk_ids_for_file(source.path)
     parsed = await _parse(source)
@@ -97,9 +100,11 @@ async def process_file(source: SourceFile) -> None:
     for stale_id in old_ids - new_ids:
         storage.delete_chunk_node(stale_id)
         vector_store.delete(stale_id)
+        lexical_store.delete(stale_id)
 
     storage.upsert_file_node(source)
     storage.upsert_chunk_nodes(chunks)
+    lexical_store.upsert(chunks)
     await sm.gather(process_chunk, chunks)
 
     # Write file hash after success — a crash forces full re-process next run.
@@ -122,6 +127,7 @@ async def _run_pipeline(
     """Discover files, clean up deleted ones, fan out process_file."""
     storage = use_context(STORAGE)
     embedder = use_context(EMBEDDER)
+    lexical_store = use_context(LEXICAL_STORE)
     file_source = LocalFileSource(repo_path)
     # Chunks are capped at what this model actually encodes — an over-long
     # chunk would be stored whole but embedded from its prefix only.
@@ -133,6 +139,7 @@ async def _run_pipeline(
     memo_store = get_memo_store()
 
     for deleted in stored_paths - current_paths:
+        lexical_store.delete_path(deleted)
         storage.delete_file(deleted)
         memo_store.delete_component("process_file", deleted)
 
@@ -168,6 +175,7 @@ def build_index(
     embedder: Embedder | None = None,
     storage: StorageAdapter | None = None,
     vector_store: VectorStore | None = None,
+    lexical_store: LexicalStore | None = None,
     file_concurrency: int | None = None,
     on_file_indexed: Callable[[str], None] | None = None,
 ) -> None:
@@ -183,6 +191,8 @@ def build_index(
         Defaults to DuckDBAdapter writing to ``smritikosh.duckdb``.
     vector_store:
         Defaults to DuckDBVectorStore sharing the storage connection.
+    lexical_store:
+        Defaults to DuckDBBm25Store sharing the storage connection.
     file_concurrency:
         Max files processed concurrently.  ``None`` auto-selects
         ``min(cpu_count, 4)``.  Lower on memory-constrained machines.
@@ -198,8 +208,13 @@ def build_index(
     # Adapters without .con skip memoization and always re-evaluate the pipeline.
     _con = getattr(storage, "con", None)
     vector_store = vector_store or DuckDBVectorStore(DEFAULT_DB_PATH, con=_con)
+    if lexical_store is None:
+        from smritikosh.adapters.retrieval.duckdb import DuckDBBm25Store
+
+        lexical_store = DuckDBBm25Store(DEFAULT_DB_PATH, con=_con)
 
     vector_store.setup(embedder.dims)
+    lexical_store.setup()
 
     if _con is not None:
         initialize_memo_store(_con)
@@ -208,6 +223,7 @@ def build_index(
     ctx.provide(EMBEDDER, embedder)
     ctx.provide(STORAGE, storage)
     ctx.provide(VECTOR_STORE, vector_store)
+    ctx.provide(LEXICAL_STORE, lexical_store)
 
     with ctx:
         asyncio.run(

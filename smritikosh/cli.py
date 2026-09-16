@@ -124,7 +124,8 @@ def index(
     try:
         if full:
             storage.clear_caches()
-            click.echo("Cleared incremental caches — full rebuild forced.")
+            storage.clear_index()
+            click.echo("Cleared indexes and incremental caches — full rebuild forced.")
 
         n_files = count_source_files(repo_path)
         click.echo(f"Indexing {repo_path!r} — {n_files} source file(s) …")
