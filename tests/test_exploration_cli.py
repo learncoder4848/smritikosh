@@ -11,13 +11,14 @@ from click.testing import CliRunner
 
 from smritikosh.cli import main
 from smritikosh.exploration import (
+    IndexedChunk,
     IndexInfo,
     OutlineEntry,
     SearchOptions,
     SourceLine,
     TextMatch,
 )
-from smritikosh.models import SearchResult
+from smritikosh.models import EvidencePack, SearchResult
 
 
 def _mock_explorer() -> MagicMock:
@@ -62,7 +63,7 @@ def test_should_emit_toon_without_being_asked_and_ignore_the_pre_toon_flags() ->
     # Assert
     assert [result.exit_code for result in results] == [0, 0, 0, 0]
     assert len({result.output for result in results}) == 1
-    assert results[0].output.startswith("version: 4")
+    assert results[0].output.startswith("version: 5")
 
 
 def test_should_emit_machine_readable_index_info(tmp_path: Path) -> None:
@@ -650,7 +651,7 @@ def test_should_accept_ignored_db_path_for_tools(tmp_path: Path) -> None:
 
     # Assert
     assert result.exit_code == 0
-    assert toons.loads(result.output)["version"] == 4
+    assert toons.loads(result.output)["version"] == 5
 
 
 def test_should_build_bounded_evidence_from_multiple_queries(
@@ -684,17 +685,24 @@ def test_should_build_bounded_evidence_from_multiple_queries(
             ),
         ],
     ]
-    explorer.get_source_lines.side_effect = [
-        [SourceLine(3, "def publish():"), SourceLine(4, "    pass")],
-        [SourceLine(8, "def test_publish():"), SourceLine(9, "    pass")],
-    ]
+    explorer.get_source_lines.side_effect = lambda path, **_: (
+        [SourceLine(3, "def publish():"), SourceLine(4, "    pass")]
+        if path == "src/a.py"
+        else [SourceLine(8, "def test_publish():"), SourceLine(9, "    pass")]
+    )
     embedder = MagicMock()
+    lexical_store = MagicMock()
+    lexical_store.search.return_value = []
 
     # Act
     with (
         patch(
-            "smritikosh.exploration_cli.ReadOnlyExplorer",
+            "smritikosh.exploration_cli.DuckDBSourceReader",
             return_value=explorer,
+        ),
+        patch(
+            "smritikosh.exploration_cli.DuckDBBm25Store",
+            return_value=lexical_store,
         ),
         patch(
             "smritikosh.exploration_cli.make_embedder",
@@ -721,13 +729,207 @@ def test_should_build_bounded_evidence_from_multiple_queries(
     assert result.exit_code == 0
     embedder_factory.assert_called_once_with()
     assert explorer.semantic_search.call_count == 2
-    assert explorer.semantic_search.call_args_list[1].args[0] == [
-        "publication flow; publication tests"
-    ]
+    assert explorer.semantic_search.call_args_list[1].args[0] == ["publication tests"]
     payload = toons.loads(result.output)
     assert len(result.output) <= 2000
     assert len(payload["evidence"]) == 2
-    assert payload["evidence"][0]["queries"] == [
+    assert payload["evidence"][0]["facets"] == [
         "publication flow",
         "publication tests",
     ]
+
+
+def test_should_expand_evidence_window_to_complete_definition(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    db_path: Path = tmp_path / "index.duckdb"
+    db_path.touch()
+    explorer = _mock_explorer()
+    explorer.semantic_search.return_value = [
+        SearchResult(
+            "src/helper.py",
+            50,
+            60,
+            "except Exception:\n    raise",
+            0.8,
+            "function",
+            "record_and_publish",
+        )
+    ]
+    explorer.get_outline.return_value = [
+        OutlineEntry("record_and_publish", "function", 10, 60)
+    ]
+    explorer.get_source_lines.return_value = [
+        SourceLine(10, "def record_and_publish():"),
+        SourceLine(60, "    raise"),
+    ]
+    lexical_store = MagicMock()
+    lexical_store.search.return_value = []
+
+    # Act
+    with (
+        patch(
+            "smritikosh.exploration_cli.DuckDBSourceReader",
+            return_value=explorer,
+        ),
+        patch(
+            "smritikosh.exploration_cli.DuckDBBm25Store",
+            return_value=lexical_store,
+        ),
+        patch(
+            "smritikosh.exploration_cli.make_embedder",
+            return_value=MagicMock(),
+        ),
+    ):
+        result = CliRunner().invoke(
+            main,
+            [
+                "explore",
+                "evidence",
+                "publication retry",
+                "--max-results",
+                "1",
+                "--db-path",
+                str(db_path),
+            ],
+        )
+
+    # Assert
+    assert result.exit_code == 0
+    evidence = toons.loads(result.output)["evidence"][0]
+    assert (evidence["start_line"], evidence["end_line"]) == (10, 60)
+
+
+def test_should_prefer_relevant_source_over_higher_scoring_documentation(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    db_path: Path = tmp_path / "index.duckdb"
+    db_path.touch()
+    explorer = _mock_explorer()
+    explorer.semantic_search.return_value = [
+        SearchResult(
+            "docs/retry.md",
+            1,
+            5,
+            "# Generic retry guide",
+            0.6,
+            "section",
+            "Retry guide",
+        ),
+        SearchResult(
+            "clients/redis/client.py",
+            40,
+            50,
+            "def decrement():\n    return redis.decr()",
+            0.5,
+            "method",
+            "decrement",
+        ),
+    ]
+    explorer.get_outline.side_effect = [
+        [OutlineEntry("decrement", "method", 40, 50)],
+        [OutlineEntry("decrement", "method", 40, 50)],
+    ]
+    explorer.get_source_lines.return_value = [
+        SourceLine(40, "def decrement():"),
+        SourceLine(50, "    return redis.decr()"),
+    ]
+    explorer.get_chunks_by_ids.return_value = [
+        IndexedChunk(
+            "redis",
+            "clients/redis/client.py",
+            40,
+            50,
+            "def decrement():\n    return redis.decr()",
+            "method",
+            "decrement",
+        )
+    ]
+    lexical_store = MagicMock()
+    lexical_store.search.return_value = [("redis", 1.0)]
+
+    # Act
+    with (
+        patch(
+            "smritikosh.exploration_cli.DuckDBSourceReader",
+            return_value=explorer,
+        ),
+        patch(
+            "smritikosh.exploration_cli.DuckDBBm25Store",
+            return_value=lexical_store,
+        ),
+        patch(
+            "smritikosh.exploration_cli.make_embedder",
+            return_value=MagicMock(),
+        ),
+    ):
+        result = CliRunner().invoke(
+            main,
+            [
+                "explore",
+                "evidence",
+                "redis decrement retry",
+                "--per-query",
+                "1",
+                "--max-results",
+                "1",
+                "--db-path",
+                str(db_path),
+            ],
+        )
+
+    # Assert
+    assert result.exit_code == 0
+    evidence = toons.loads(result.output)["evidence"]
+    assert [item["path"] for item in evidence] == ["clients/redis/client.py"]
+
+
+def test_should_clamp_evidence_limits_instead_of_failing(tmp_path: Path) -> None:
+    # Arrange
+    db_path: Path = tmp_path / "index.duckdb"
+    db_path.touch()
+    service = MagicMock()
+    service.retrieve.return_value = EvidencePack((), (), ("query",), False)
+
+    # Act
+    with (
+        patch(
+            "smritikosh.exploration_cli.DuckDBSourceReader",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "smritikosh.exploration_cli.DuckDBBm25Store",
+            return_value=MagicMock(),
+        ),
+        patch("smritikosh.exploration_cli.EvidenceService", return_value=service),
+        patch("smritikosh.exploration_cli.make_embedder", return_value=MagicMock()),
+    ):
+        result = CliRunner().invoke(
+            main,
+            [
+                "explore",
+                "evidence",
+                "query",
+                "--per-query",
+                "9",
+                "--max-results",
+                "48",
+                "--max-source-lines",
+                "500",
+                "--max-chars",
+                "60000",
+                "--db-path",
+                str(db_path),
+            ],
+        )
+
+    # Assert
+    assert result.exit_code == 0
+    options = service.retrieve.call_args.kwargs["options"]
+    assert (options.max_results, options.max_source_lines, options.max_chars) == (
+        24,
+        120,
+        45_000,
+    )

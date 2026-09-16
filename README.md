@@ -59,6 +59,9 @@ bundles, and fixture directories.
 - [`smritikosh/adapters`](https://github.com/learncoder4848/smritikosh/tree/main/smritikosh/adapters)
   — local-filesystem, DuckDB, and sentence-transformer implementations of those
   contracts.
+- [`smritikosh/retrieval`](https://github.com/learncoder4848/smritikosh/tree/main/smritikosh/retrieval)
+  — hybrid candidate fusion, diverse selection, generic expansion, and bounded
+  evidence packing.
 - [`smritikosh/queries`](https://github.com/learncoder4848/smritikosh/tree/main/smritikosh/queries)
   — packaged tree-sitter tag queries.
 
@@ -152,6 +155,12 @@ smritikosh explore chunks src/auth/permissions.py \
 smritikosh explore text is_allowed \
   --path src/auth/permissions.py \
   --db-path smritikosh.duckdb
+
+smritikosh explore evidence \
+  "authorization decision flow" \
+  "authorization failure handling" \
+  "authorization tests" \
+  --db-path smritikosh.duckdb
 ```
 
 The two calls that answer most questions are `search`, which reports where the
@@ -178,6 +187,19 @@ Multiple semantic queries are embedded in one model call. Results are
 deduplicated and ranked by each chunk's best score across those queries; a hit
 that mostly repeats the lines of a better-scoring one is dropped. Path, text,
 and chunk commands do not load the embedding model.
+
+`explore evidence` uses dense retrieval and an incremental Okapi BM25 index,
+combines their independent ranks with Reciprocal Rank Fusion, reserves coverage
+for each supplied facet, and applies diverse context selection before expanding
+definitions and direct references. Output is capped at 45,000 characters.
+See [`SEARCH_PIPELINE.md`](SEARCH_PIPELINE.md) for the complete indexing,
+retrieval, ranking, expansion, and ports/adapters walkthrough.
+
+Indexes created before hybrid retrieval need one rebuild:
+
+```bash
+smritikosh index /path/to/repo --db-path smritikosh.duckdb --full
+```
 
 `explore tools` returns a machine-readable command manifest and recommended
 workflow. An agent instruction can therefore stay short:

@@ -4,13 +4,19 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from typing import Final, TextIO, cast
 
 import click
 import toons
 
 from smritikosh.adapters.embedder import make_embedder
+from smritikosh.adapters.retrieval.duckdb import (
+    DuckDBBm25Store,
+    DuckDBDenseRetriever,
+    DuckDBLexicalRetriever,
+)
+from smritikosh.adapters.retrieval.source import DuckDBSourceReader
 from smritikosh.constants import DEFAULT_DB_PATH
 from smritikosh.exploration import (
     IndexedChunk,
@@ -20,13 +26,14 @@ from smritikosh.exploration import (
     SourceLine,
     TextMatch,
 )
-from smritikosh.models import SearchResult
+from smritikosh.models import EvidenceOptions, EvidencePack, SearchResult
 from smritikosh.ports.embedder import Embedder
+from smritikosh.retrieval.service import EvidenceService
 
 __all__ = ["explore"]
 
 TOOL_MANIFEST: Final[dict[str, object]] = {
-    "version": 4,
+    "version": 5,
     "flow": (
         "For broad questions run evidence with 4-8 focused query arguments, "
         "then at most one chunks --range follow-up. Use batch for already-known "
@@ -60,9 +67,8 @@ TOOL_MANIFEST: Final[dict[str, object]] = {
         ),
         "evidence": (
             "explore evidence QUERY... [--per-query N] [--max-results N] "
-            "[--max-chars N] — bounded, deduplicated, numbered source evidence "
-            "for several facets in one invocation; first query is the topic "
-            "anchor automatically applied to every later facet"
+            "[--max-chars N] — bounded dense+BM25 evidence fused with RRF, "
+            "selected for facet coverage and diversity, then expanded one hop"
         ),
     },
     "notes": (
@@ -401,167 +407,59 @@ def semantic_search(
     )
 
 
-@dataclass
-class _EvidenceCandidate:
-    """Track one deduplicated search hit and the queries that selected it."""
-
-    result: SearchResult
-    queries: list[str]
-
-
-def _collect_evidence_candidates(
-    explorer: ReadOnlyExplorer,
-    queries: tuple[str, ...],
-    *,
-    embedder: Embedder,
-    per_query: int,
-    max_results: int,
-) -> list[_EvidenceCandidate]:
-    """Collect semantic hits round-robin so every query retains representation."""
-    anchor: str = queries[0]
-    search_queries: list[str] = [
-        anchor if index == 0 else f"{anchor}; {query}"
-        for index, query in enumerate(queries)
-    ]
-    groups: list[list[SearchResult]] = [
-        explorer.semantic_search(
-            [search_query],
-            embedder=embedder,
-            options=SearchOptions(
-                top_k=per_query,
-                exclude_paths=(".windsurf/%", ".cursor/%"),
-            ),
-        )
-        for search_query in search_queries
-    ]
-    candidates: list[_EvidenceCandidate] = []
-    by_location: dict[tuple[str, int, int], _EvidenceCandidate] = {}
-    for rank in range(per_query):
-        for query, results in zip(queries, groups, strict=True):
-            if rank >= len(results):
-                continue
-            result: SearchResult = results[rank]
-            key: tuple[str, int, int] = (
-                result.path,
-                result.start_line,
-                result.end_line,
-            )
-            existing: _EvidenceCandidate | None = by_location.get(key)
-            if existing is not None:
-                if query not in existing.queries:
-                    existing.queries.append(query)
-                continue
-            candidate = _EvidenceCandidate(result=result, queries=[query])
-            by_location[key] = candidate
-            candidates.append(candidate)
-            if len(candidates) == max_results:
-                return candidates
-    return candidates
-
-
-def _fallback_source(result: SearchResult, *, max_source_lines: int) -> str:
-    """Number a stored snippet when exact source reconstruction is unavailable."""
-    snippet_lines: list[str] = result.snippet.splitlines()[:max_source_lines]
-    width: int = len(str(result.start_line + len(snippet_lines) - 1))
-    return "\n".join(
-        f"{result.start_line + offset:>{width}}  {line}"
-        for offset, line in enumerate(snippet_lines)
-    )
-
-
-def _evidence_item(
-    explorer: ReadOnlyExplorer,
-    candidate: _EvidenceCandidate,
-    *,
-    evidence_id: str,
-    max_source_lines: int,
-) -> dict[str, object]:
-    """Build one cited evidence item with a bounded numbered source span."""
-    result: SearchResult = candidate.result
-    returned_end: int = min(
-        result.end_line,
-        result.start_line + max_source_lines - 1,
-    )
-    lines: list[SourceLine] = explorer.get_source_lines(
-        result.path,
-        start_line=result.start_line,
-        end_line=returned_end,
-    )
-    source: str = _numbered_source(lines) or _fallback_source(
-        result,
-        max_source_lines=max_source_lines,
-    )
+def _evidence_pack_payload(pack: EvidencePack, *, max_chars: int) -> dict[str, object]:
+    """Render application evidence as a TOON-ready payload."""
     return {
-        "id": evidence_id,
-        "queries": candidate.queries,
-        "path": result.path,
-        "start_line": result.start_line,
-        "end_line": returned_end,
-        "score": round(result.score, 3),
-        "chunk_kind": result.chunk_kind,
-        "symbol": result.symbol,
-        "source": source,
-        "source_truncated": returned_end < result.end_line,
-        "follow_up": (
-            f"smritikosh explore chunks --range {result.path} "
-            f"{result.start_line} {result.end_line}"
-        ),
-    }
-
-
-def _bounded_evidence_payload(
-    explorer: ReadOnlyExplorer,
-    queries: tuple[str, ...],
-    candidates: list[_EvidenceCandidate],
-    *,
-    max_source_lines: int,
-    max_chars: int,
-) -> dict[str, object]:
-    """Build the largest valid evidence payload fitting the character budget."""
-    payload: dict[str, object] = {
-        "version": 1,
-        "queries": list(queries),
+        "version": 2,
         "budget_chars": max_chars,
-        "truncated": False,
-        "evidence": [],
-        "outlines": [],
-        "outlines_truncated": False,
+        "covered_facets": list(pack.covered_facets),
+        "missing_facets": list(pack.missing_facets),
+        "truncated": pack.truncated,
+        "evidence": [
+            {
+                "id": item.evidence_id,
+                "facets": list(item.facets),
+                "path": item.result.path,
+                "start_line": item.result.start_line,
+                "end_line": item.result.end_line,
+                "chunk_kind": item.result.chunk_kind,
+                "symbol": item.result.symbol,
+                "source": item.source,
+                "source_truncated": item.source_truncated,
+                "follow_up": (
+                    f"smritikosh explore chunks --range {item.result.path} "
+                    f"{item.result.start_line} {item.result.end_line}"
+                ),
+            }
+            for item in pack.items
+        ],
     }
+
+
+def _bounded_toon_payload(
+    payload: dict[str, object],
+    *,
+    facets: tuple[str, ...],
+    max_chars: int,
+) -> str:
+    """Trim complete evidence items until serialized TOON fits the hard limit."""
     evidence: list[dict[str, object]] = cast(
         list[dict[str, object]],
         payload["evidence"],
     )
-    for index, candidate in enumerate(candidates, start=1):
-        item: dict[str, object] = _evidence_item(
-            explorer,
-            candidate,
-            evidence_id=f"E{index}",
-            max_source_lines=max_source_lines,
-        )
-        evidence.append(item)
-        payload["truncated"] = index < len(candidates)
-        if len(toons.dumps(payload)) + 1 > max_chars:
-            evidence.pop()
-            payload["truncated"] = True
-            break
-    outlines: list[dict[str, object]] = cast(
-        list[dict[str, object]],
-        payload["outlines"],
-    )
-    paths: list[str] = list(dict.fromkeys(str(item["path"]) for item in evidence))
-    for path in paths:
-        entries: list[OutlineEntry] = explorer.get_outline(path)
-        outline: dict[str, object] = {
-            "path": path,
-            "definitions": [asdict(entry) for entry in entries[:30]],
-            "truncated": len(entries) > 30,
+    encoded: str = toons.dumps(payload)
+    while len(encoded) + 1 > max_chars and evidence:
+        evidence.pop()
+        payload["truncated"] = True
+        covered: set[str] = {
+            str(facet)
+            for item in evidence
+            for facet in cast(list[object], item["facets"])
         }
-        outlines.append(outline)
-        if len(toons.dumps(payload)) + 1 > max_chars:
-            outlines.pop()
-            payload["outlines_truncated"] = True
-            break
-    return payload
+        payload["covered_facets"] = [facet for facet in facets if facet in covered]
+        payload["missing_facets"] = [facet for facet in facets if facet not in covered]
+        encoded = toons.dumps(payload)
+    return encoded
 
 
 @explore.command("evidence")
@@ -570,25 +468,25 @@ def _bounded_evidence_payload(
     "--per-query",
     default=3,
     show_default=True,
-    type=click.IntRange(min=1, max=10),
+    type=click.IntRange(min=1, max=5, clamp=True),
 )
 @click.option(
     "--max-results",
-    default=18,
+    default=24,
     show_default=True,
-    type=click.IntRange(min=1, max=30),
+    type=click.IntRange(min=1, max=24, clamp=True),
 )
 @click.option(
     "--max-source-lines",
-    default=80,
+    default=120,
     show_default=True,
-    type=click.IntRange(min=1, max=200),
+    type=click.IntRange(min=1, max=120, clamp=True),
 )
 @click.option(
     "--max-chars",
-    default=35_000,
+    default=45_000,
     show_default=True,
-    type=click.IntRange(min=1_000),
+    type=click.IntRange(min=1_000, max=45_000, clamp=True),
 )
 @click.option(
     "--db-path",
@@ -605,24 +503,45 @@ def collect_evidence(
     max_chars: int,
     db_path: str,
 ) -> None:
-    """Return bounded source evidence across several focused semantic queries."""
+    """Return bounded hybrid evidence across several focused queries."""
+    queries = tuple(query[:500] for query in queries[:8])
     embedder: Embedder = make_embedder()
-    with ReadOnlyExplorer(db_path) as explorer:
-        candidates: list[_EvidenceCandidate] = _collect_evidence_candidates(
-            explorer,
-            queries,
-            embedder=embedder,
-            per_query=per_query,
-            max_results=max_results,
+    reader = DuckDBSourceReader(db_path)
+    lexical_store = DuckDBBm25Store(db_path, read_only=True)
+    try:
+        service = EvidenceService(
+            (
+                DuckDBDenseRetriever(reader, embedder),
+                DuckDBLexicalRetriever(lexical_store, reader),
+            ),
+            reader,
         )
-        payload: dict[str, object] = _bounded_evidence_payload(
-            explorer,
-            queries,
-            candidates,
-            max_source_lines=max_source_lines,
+        try:
+            pack: EvidencePack = service.retrieve(
+                queries,
+                options=EvidenceOptions(
+                    candidates_per_channel=max(30, per_query * 6),
+                    max_results=max_results,
+                    max_source_lines=max_source_lines,
+                    max_chars=max_chars,
+                ),
+            )
+        except RuntimeError as exc:
+            raise click.ClickException(str(exc)) from exc
+        payload: dict[str, object] = _evidence_pack_payload(
+            pack,
             max_chars=max_chars,
         )
-    click.echo(toons.dumps(payload))
+    finally:
+        lexical_store.close()
+        reader.close()
+    click.echo(
+        _bounded_toon_payload(
+            payload,
+            facets=queries,
+            max_chars=max_chars,
+        )
+    )
 
 
 def _parse_batch_requests(stream: TextIO) -> list[dict[str, object]]:

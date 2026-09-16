@@ -77,6 +77,12 @@ def cap(name: str, node: FakeNode, path: str = "test.py", key: str = "") -> Capt
     return Capture(capture_name=name, node=node, name=key, path=path)
 
 
-def cid(text: str) -> str:
+def cid(
+    text: str,
+    path: str = "test.py",
+    start_line: int = 1,
+    end_line: int = 1,
+) -> str:
     """Return the expected chunk id for *text*."""
-    return hashlib.sha256(text.encode()).hexdigest()[:16]
+    identity: str = f"{path}\0{start_line}:{end_line}\0{text}"
+    return hashlib.sha256(identity.encode()).hexdigest()[:16]

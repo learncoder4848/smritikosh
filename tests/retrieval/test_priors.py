@@ -1,0 +1,48 @@
+"""Tests for generic post-fusion metadata priors."""
+
+from smritikosh.models import SearchResult
+from smritikosh.models.retrieval import (
+    CandidateScore,
+    EvidenceCandidate,
+    EvidenceOptions,
+)
+from smritikosh.retrieval.priors import apply_metadata_priors
+
+
+class _Reader:
+    def find_paths(self, pattern: str, *, limit: int = 50) -> list[str]:
+        if pattern == "order_export":
+            return [
+                "src/order_export.py",
+                "src/order_export_handler.py",
+                "tests/test_order_export.py",
+            ]
+        return []
+
+
+def _candidate(path: str) -> EvidenceCandidate:
+    return EvidenceCandidate(
+        result=SearchResult(path, 1, 2, "code", 0.5, "function", "run"),
+        facets={"order export retry"},
+        facet_scores={"order export retry": 0.1},
+        score=CandidateScore(fused=0.1),
+    )
+
+
+def test_should_prefer_topic_source_and_demote_unrequested_documentation() -> None:
+    documentation = _candidate("docs/order_export.md")
+    sibling = _candidate("src/payment_export.py")
+    topic = _candidate("src/order_export.py")
+
+    ranked = apply_metadata_priors(
+        [documentation, sibling, topic],
+        ("order export flow",),
+        _Reader(),
+        options=EvidenceOptions(),
+    )
+
+    assert [candidate.result.path for candidate in ranked] == [
+        "src/order_export.py",
+        "src/payment_export.py",
+        "docs/order_export.md",
+    ]

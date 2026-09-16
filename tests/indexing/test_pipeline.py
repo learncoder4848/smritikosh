@@ -13,6 +13,7 @@ from smritikosh.adapters.vector_store.duckdb import DuckDBVectorStore
 from smritikosh.engine import PipelineContext
 from smritikosh.indexing.pipeline._pipeline import (
     EMBEDDER,
+    LEXICAL_STORE,
     STORAGE,
     VECTOR_STORE,
     _embed_one,
@@ -83,6 +84,24 @@ class _Storage:
         self._files.pop(path, None)
 
     def get_chunks_by_ids(self, chunk_ids: list[str]) -> list[dict[str, Any]]:
+        return []
+
+
+class _LexicalStore:
+    def __init__(self) -> None:
+        self.chunk_ids: set[str] = set()
+
+    def setup(self) -> None: ...
+
+    def upsert(self, chunks: list[Chunk]) -> None:
+        self.chunk_ids.update(chunk.id for chunk in chunks)
+
+    def delete(self, chunk_id: str) -> None:
+        self.chunk_ids.discard(chunk_id)
+
+    def delete_path(self, path: str) -> None: ...
+
+    def search(self, query: str, *, options: Any) -> list[tuple[str, float]]:
         return []
 
 
@@ -239,6 +258,7 @@ async def test_process_file_writes_file_hash_after_success() -> None:
     ctx.provide(STORAGE, storage)
     ctx.provide(VECTOR_STORE, vs)
     ctx.provide(EMBEDDER, _Embedder())
+    ctx.provide(LEXICAL_STORE, _LexicalStore())
     with ctx:
         await process_file(source)
 
@@ -260,6 +280,7 @@ async def test_process_file_removes_stale_chunks() -> None:
     ctx.provide(STORAGE, storage)
     ctx.provide(VECTOR_STORE, vs)
     ctx.provide(EMBEDDER, _Embedder())
+    ctx.provide(LEXICAL_STORE, _LexicalStore())
     with ctx:
         await process_file(source)
 
