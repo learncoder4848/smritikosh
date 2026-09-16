@@ -45,6 +45,16 @@ def _has_intent(facets: set[str], terms: frozenset[str]) -> bool:
     return bool(words & terms)
 
 
+def _is_documentation(path: str) -> bool:
+    """Return whether a path belongs to a documentation source."""
+    lowered = path.lower()
+    return (
+        lowered.startswith(("docs/", "documentation/"))
+        or "/readme." in lowered
+        or lowered.endswith((".md", ".mdx", ".rst"))
+    )
+
+
 def apply_metadata_priors(
     candidates: list[EvidenceCandidate],
     facets: tuple[str, ...],
@@ -54,13 +64,12 @@ def apply_metadata_priors(
 ) -> list[EvidenceCandidate]:
     """Apply modest source-category and topic-path adjustments after RRF."""
     _, topic_paths = infer_topic(reader, facets[0])
+    documentation_dominant = sum(
+        _is_documentation(candidate.result.path) for candidate in candidates
+    ) >= max((len(candidates) + 1) // 2, 1)
     for candidate in candidates:
         path: str = candidate.result.path.lower()
-        documentation: bool = (
-            path.startswith(("docs/", "documentation/"))
-            or "/readme." in path
-            or path.endswith((".md", ".mdx", ".rst"))
-        )
+        documentation = _is_documentation(path)
         test_path: bool = path.startswith("tests/") or "/tests/" in path
         adjusted: dict[str, float] = {}
         for facet, score in candidate.facet_scores.items():
@@ -70,9 +79,13 @@ def apply_metadata_priors(
                 else 1.0
             )
             facet_set: set[str] = {facet}
-            if documentation and not _has_intent(
-                facet_set,
-                _DOCUMENTATION_TERMS,
+            if (
+                documentation
+                and not documentation_dominant
+                and not _has_intent(
+                    facet_set,
+                    _DOCUMENTATION_TERMS,
+                )
             ):
                 multiplier *= options.documentation_penalty
             if "migration" in path and not _has_intent(
