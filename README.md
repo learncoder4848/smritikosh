@@ -156,6 +156,12 @@ smritikosh explore text is_allowed \
   --path src/auth/permissions.py \
   --db-path smritikosh.duckdb
 
+smritikosh explore discover \
+  "authorization ownership and decision flow" \
+  "authorization failures and downstream effects" \
+  --anchor permission_id \
+  --db-path smritikosh.duckdb
+
 smritikosh explore evidence \
   "authorization decision flow" \
   "authorization failure handling" \
@@ -187,6 +193,12 @@ Multiple semantic queries are embedded in one model call. Results are
 deduplicated and ranked by each chunk's best score across those queries; a hit
 that mostly repeats the lines of a better-scoring one is dropped. Path, text,
 and chunk commands do not load the embedding model.
+
+`explore discover` builds a compact, high-recall candidate inventory before
+source is loaded. It combines dense and BM25 ranks with exact `--anchor`
+matches, detects explicit references to indexed service domains, aggregates
+all signals by file, and returns at most two representative locations per
+file. Use its candidates to formulate focused evidence queries.
 
 `explore evidence` uses dense retrieval and an incremental Okapi BM25 index,
 combines their independent ranks with Reciprocal Rank Fusion, reserves coverage

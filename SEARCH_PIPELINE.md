@@ -132,6 +132,8 @@ that dominated earlier evaluations.
 - `smritikosh/adapters/retrieval/source.py` reads indexed source from DuckDB.
 - `smritikosh/adapters/retrieval/duckdb.py` implements dense and BM25 adapters.
 - `smritikosh/retrieval/hybrid.py` generates candidates per facet.
+- `smritikosh/retrieval/discovery.py` aggregates semantic, lexical,
+  exact-anchor, and explicit domain-reference signals into candidate files.
 - `smritikosh/retrieval/fusion.py` implements RRF.
 - `smritikosh/retrieval/priors.py` applies configurable metadata priors.
 - `smritikosh/retrieval/selection.py` implements facet reservation and MMR.
@@ -150,6 +152,11 @@ hardcoded into the retrieval strategy.
 smritikosh index /path/to/repo \
   --db-path smritikosh.duckdb \
   --full
+
+smritikosh explore discover \
+  "feature trigger, ownership, and downstream behavior" \
+  --anchor feature_id \
+  --db-path smritikosh.duckdb
 
 smritikosh explore evidence \
   "feature trigger and flow" \
