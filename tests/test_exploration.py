@@ -399,6 +399,29 @@ def test_should_return_each_matching_line_once_with_its_line_number(
     assert all(match.exact_line for match in matches)
 
 
+def test_should_return_one_exact_text_location_per_file(tmp_path: Path) -> None:
+    db_path: str = _make_db(
+        tmp_path,
+        [
+            ("chunk:a-1", "a.md", 1, 2, "product_id\nfirst", "First"),
+            ("chunk:a-2", "a.md", 3, 4, "product_id\nsecond", "Second"),
+            ("chunk:b-1", "b.md", 8, 9, "product_id\nthird", "Third"),
+        ],
+    )
+    explorer = ReadOnlyExplorer(db_path)
+
+    matches = explorer.find_text_files("product_id")
+    explorer.close()
+
+    assert [
+        (match.path, match.start_line, match.end_line, match.symbol)
+        for match in matches
+    ] == [
+        ("a.md", 1, 2, "First"),
+        ("b.md", 8, 9, "Third"),
+    ]
+
+
 def test_should_anchor_unmappable_matches_to_their_chunk_start(
     tmp_path: Path,
 ) -> None:
@@ -483,6 +506,47 @@ def test_should_rebuild_requested_lines_once_from_overlapping_chunks(
         (2, "two"),
         (3, "three"),
         (4, "four"),
+    ]
+
+
+def test_should_rebuild_section_body_without_heading_context(tmp_path: Path) -> None:
+    db_path: str = _make_db(
+        tmp_path,
+        [
+            (
+                "chunk:broad",
+                "docs/system.md",
+                10,
+                11,
+                "# Parent\n## Child\n\nbroad first line\nsecond body line",
+                "Parent > Child",
+            ),
+            (
+                "chunk:precise",
+                "docs/system.md",
+                10,
+                10,
+                "# Parent\n## Child\n\nprecise first line",
+                "Parent > Child",
+            ),
+        ],
+    )
+    connection = duckdb.connect(db_path)
+    connection.execute(
+        """
+        UPDATE nodes
+        SET metadata = json_merge_patch(metadata, '{"chunk_kind": "section"}')
+        """
+    )
+    connection.close()
+    explorer = ReadOnlyExplorer(db_path)
+
+    lines = explorer.get_source_lines("docs/system.md", start_line=10, end_line=11)
+    explorer.close()
+
+    assert [(line.line_number, line.text) for line in lines] == [
+        (10, "precise first line"),
+        (11, "second body line"),
     ]
 
 
