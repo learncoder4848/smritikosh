@@ -18,7 +18,13 @@ from smritikosh.exploration import (
     SourceLine,
     TextMatch,
 )
-from smritikosh.models import EvidencePack, SearchResult
+from smritikosh.models import (
+    DiscoveredFile,
+    DiscoveryEvidence,
+    DiscoveryPack,
+    EvidencePack,
+    SearchResult,
+)
 
 
 def _mock_explorer() -> MagicMock:
@@ -45,9 +51,10 @@ def test_should_describe_all_exploration_tools_as_toon() -> None:
         "info",
         "batch",
         "evidence",
+        "discover",
     ]
     assert "loads the embedding model" in manifest["tools"]["search"]
-    assert "run evidence" in manifest["flow"]
+    assert "run discover" in manifest["flow"]
 
 
 def test_should_emit_toon_without_being_asked_and_ignore_the_pre_toon_flags() -> None:
@@ -63,7 +70,7 @@ def test_should_emit_toon_without_being_asked_and_ignore_the_pre_toon_flags() ->
     # Assert
     assert [result.exit_code for result in results] == [0, 0, 0, 0]
     assert len({result.output for result in results}) == 1
-    assert results[0].output.startswith("version: 5")
+    assert results[0].output.startswith("version: 6")
 
 
 def test_should_emit_machine_readable_index_info(tmp_path: Path) -> None:
@@ -651,7 +658,69 @@ def test_should_accept_ignored_db_path_for_tools(tmp_path: Path) -> None:
 
     # Assert
     assert result.exit_code == 0
-    assert toons.loads(result.output)["version"] == 5
+    assert toons.loads(result.output)["version"] == 6
+
+
+def test_should_return_compact_discovered_files(tmp_path: Path) -> None:
+    db_path: Path = tmp_path / "index.duckdb"
+    db_path.touch()
+    service = MagicMock()
+    service.retrieve.return_value = DiscoveryPack(
+        (
+            DiscoveredFile(
+                path="Account_System.md",
+                score=1.0,
+                signals=("exact-anchor", "semantic"),
+                matched_facets=("account change",),
+                matched_anchors=("product_id",),
+                referenced_by=(),
+                evidence=(DiscoveryEvidence(38, 41, "Events"),),
+            ),
+        ),
+        False,
+    )
+
+    with (
+        patch(
+            "smritikosh.exploration_cli.DuckDBSourceReader",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "smritikosh.exploration_cli.DuckDBBm25Store",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "smritikosh.exploration_cli.DiscoveryService",
+            return_value=service,
+        ),
+        patch("smritikosh.exploration_cli.make_embedder", return_value=MagicMock()),
+    ):
+        result = CliRunner().invoke(
+            main,
+            [
+                "explore",
+                "discover",
+                "account change",
+                "--anchor",
+                "product_id",
+                "--max-files",
+                "20",
+                "--evidence-per-file",
+                "1",
+                "--db-path",
+                str(db_path),
+            ],
+        )
+
+    assert result.exit_code == 0
+    payload = toons.loads(result.output)
+    assert payload["anchors"] == ["product_id"]
+    assert payload["files"][0]["path"] == "Account_System.md"
+    assert payload["files"][0]["matched_facets"] == ["Q1"]
+    assert payload["files"][0]["matched_anchors"] == ["A1"]
+    assert payload["files"][0]["evidence"][0]["start_line"] == 38
+    options = service.retrieve.call_args.kwargs["options"]
+    assert (options.max_files, options.evidence_per_file) == (20, 1)
 
 
 def test_should_build_bounded_evidence_from_multiple_queries(
