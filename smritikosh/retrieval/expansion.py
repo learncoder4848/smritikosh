@@ -208,7 +208,10 @@ class EvidenceExpander:
         candidate: EvidenceCandidate,
     ) -> None:
         result: SearchResult = candidate.result
-        identity: str = result.symbol or f"@{result.start_line}:{result.end_line}"
+        if result.chunk_kind == "section":
+            identity = result.chunk_id or f"@{result.start_line}:{result.end_line}"
+        else:
+            identity = result.symbol or f"@{result.start_line}:{result.end_line}"
         key: tuple[str, str, str | None] = (
             result.path,
             identity,
