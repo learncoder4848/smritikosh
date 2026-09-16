@@ -2,6 +2,10 @@
 
 from smritikosh.models.retrieval import (
     CandidateScore,
+    DiscoveredFile,
+    DiscoveryEvidence,
+    DiscoveryOptions,
+    DiscoveryPack,
     EvidenceCandidate,
     EvidenceItem,
     EvidenceOptions,
@@ -12,6 +16,7 @@ from smritikosh.models.retrieval import (
     RetrievalChannel,
     SearchOptions,
     SourceLine,
+    TextFileMatch,
     TextMatch,
 )
 from smritikosh.models.types import (
@@ -29,6 +34,10 @@ __all__ = [
     "Capture",
     "Chunk",
     "ChunkingStrategy",
+    "DiscoveredFile",
+    "DiscoveryEvidence",
+    "DiscoveryOptions",
+    "DiscoveryPack",
     "EvidenceCandidate",
     "EvidenceItem",
     "EvidenceOptions",
@@ -43,5 +52,6 @@ __all__ = [
     "SourceFile",
     "SourceLine",
     "Symbol",
+    "TextFileMatch",
     "TextMatch",
 ]
