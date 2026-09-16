@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from unittest.mock import MagicMock
 
 import duckdb
 import pytest
@@ -90,3 +91,48 @@ def test_should_explain_how_to_rebuild_when_bm25_index_is_missing() -> None:
 
     with pytest.raises(RuntimeError, match="index --full"):
         store.search("anything", options=SearchOptions(top_k=5))
+
+
+def test_should_rollback_replacement_when_posting_insert_fails() -> None:
+    connection = duckdb.connect(":memory:")
+    store = DuckDBBm25Store(con=connection)
+    store.setup()
+    store.upsert([_chunk("one", "src/a.py", "before", "load")])
+    failing_connection = MagicMock(wraps=connection)
+    calls: int = 0
+
+    def fail_second_insert(query: str, values: object) -> object:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("posting insert failed")
+        return connection.executemany(query, values)
+
+    failing_connection.executemany.side_effect = fail_second_insert
+    store._connection = failing_connection
+
+    with pytest.raises(RuntimeError, match="posting insert failed"):
+        store.upsert([_chunk("one", "src/a.py", "after", "load")])
+
+    store._connection = connection
+    assert [
+        chunk_id
+        for chunk_id, _ in store.search(
+            "before",
+            options=SearchOptions(top_k=5),
+        )
+    ] == ["one"]
+
+
+def test_should_clear_stale_documents_when_schema_version_changes() -> None:
+    connection = duckdb.connect(":memory:")
+    store = DuckDBBm25Store(con=connection)
+    store.setup()
+    store.upsert([_chunk("one", "src/a.py", "before", "load")])
+    connection.execute(
+        "UPDATE lexical_metadata SET value = 'old' WHERE key = 'schema_version'"
+    )
+
+    store.setup()
+
+    assert store.search("before", options=SearchOptions(top_k=5)) == []

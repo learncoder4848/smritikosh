@@ -8,6 +8,7 @@ from typing import Any
 
 import duckdb
 
+from smritikosh.adapters.retrieval.duckdb import DuckDBBm25Store
 from smritikosh.adapters.storage.duckdb import DuckDBAdapter
 from smritikosh.adapters.vector_store.duckdb import DuckDBVectorStore
 from smritikosh.engine import PipelineContext
@@ -21,7 +22,7 @@ from smritikosh.indexing.pipeline._pipeline import (
     process_chunk,
     process_file,
 )
-from smritikosh.models import Chunk, SourceFile
+from smritikosh.models import Chunk, SearchOptions, SourceFile
 from smritikosh.ports.embedder import Embedder
 
 # ── Stubs ─────────────────────────────────────────────────────────────────────
@@ -54,6 +55,9 @@ class _VectorStore:
     def delete(self, chunk_id: str) -> None:
         self._store.pop(chunk_id, None)
 
+    def clear(self) -> None:
+        self._store.clear()
+
 
 class _Storage:
     def __init__(self) -> None:
@@ -83,6 +87,9 @@ class _Storage:
     def delete_file(self, path: str) -> None:
         self._files.pop(path, None)
 
+    def clear_nodes(self) -> None:
+        self._chunks.clear()
+
     def get_chunks_by_ids(self, chunk_ids: list[str]) -> list[dict[str, Any]]:
         return []
 
@@ -100,6 +107,9 @@ class _LexicalStore:
         self.chunk_ids.discard(chunk_id)
 
     def delete_path(self, path: str) -> None: ...
+
+    def clear(self) -> None:
+        self.chunk_ids.clear()
 
     def search(self, query: str, *, options: Any) -> list[tuple[str, float]]:
         return []
@@ -325,3 +335,40 @@ def test_build_index_second_run_is_idempotent(tmp_path: Path) -> None:
     chunk_ids_after_second = storage.get_chunk_ids_for_file("hello.py")
 
     assert chunk_ids_after_first == chunk_ids_after_second
+
+
+def test_build_index_removes_all_indexes_when_source_file_is_deleted(
+    tmp_path: Path,
+) -> None:
+    source_path: Path = tmp_path / "hello.py"
+    source_path.write_text("def hello(): pass\n")
+    connection = duckdb.connect(":memory:")
+    storage = DuckDBAdapter(con=connection)
+    vector_store = DuckDBVectorStore(con=connection)
+    lexical_store = DuckDBBm25Store(con=connection)
+    build_index(
+        str(tmp_path),
+        embedder=_Embedder(),
+        storage=storage,
+        vector_store=vector_store,
+        lexical_store=lexical_store,
+    )
+    (chunk_id,) = storage.get_chunk_ids_for_file("hello.py")
+
+    source_path.unlink()
+    build_index(
+        str(tmp_path),
+        embedder=_Embedder(),
+        storage=storage,
+        vector_store=vector_store,
+        lexical_store=lexical_store,
+    )
+
+    assert vector_store.exists(chunk_id) is False
+    assert (
+        lexical_store.search(
+            "hello",
+            options=SearchOptions(top_k=5),
+        )
+        == []
+    )

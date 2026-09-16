@@ -73,7 +73,7 @@ def _embed_one(texts: list[str]) -> list[list[float]]:
 
 @sm.tracked
 async def process_chunk(chunk: Chunk) -> None:
-    """Embed and upsert one chunk; skip if content_hash is unchanged."""
+    """Embed and upsert one chunk; skip when its location and text are unchanged."""
     vector_store = use_context(VECTOR_STORE)
     if vector_store.exists(chunk.id):
         return
@@ -127,6 +127,7 @@ async def _run_pipeline(
     """Discover files, clean up deleted ones, fan out process_file."""
     storage = use_context(STORAGE)
     embedder = use_context(EMBEDDER)
+    vector_store = use_context(VECTOR_STORE)
     lexical_store = use_context(LEXICAL_STORE)
     file_source = LocalFileSource(repo_path)
     # Chunks are capped at what this model actually encodes — an over-long
@@ -139,6 +140,9 @@ async def _run_pipeline(
     memo_store = get_memo_store()
 
     for deleted in stored_paths - current_paths:
+        deleted_chunk_ids: set[str] = storage.get_chunk_ids_for_file(deleted)
+        for chunk_id in deleted_chunk_ids:
+            vector_store.delete(chunk_id)
         lexical_store.delete_path(deleted)
         storage.delete_file(deleted)
         memo_store.delete_component("process_file", deleted)
@@ -175,9 +179,11 @@ def build_index(
     embedder: Embedder | None = None,
     storage: StorageAdapter | None = None,
     vector_store: VectorStore | None = None,
-    lexical_store: LexicalStore | None = None,
     file_concurrency: int | None = None,
     on_file_indexed: Callable[[str], None] | None = None,
+    *,
+    lexical_store: LexicalStore | None = None,
+    full: bool = False,
 ) -> None:
     """Build or incrementally update the vector index for *repo_path*.
 
@@ -191,8 +197,6 @@ def build_index(
         Defaults to DuckDBAdapter writing to ``smritikosh.duckdb``.
     vector_store:
         Defaults to DuckDBVectorStore sharing the storage connection.
-    lexical_store:
-        Defaults to DuckDBBm25Store sharing the storage connection.
     file_concurrency:
         Max files processed concurrently.  ``None`` auto-selects
         ``min(cpu_count, 4)``.  Lower on memory-constrained machines.
@@ -200,6 +204,10 @@ def build_index(
         Optional callback called once per source file after it has been
         fully indexed (embedded + stored), including cache hits.  Receives
         the file path as a string.  Used by the CLI to drive progress bars.
+    lexical_store:
+        Defaults to DuckDBBm25Store sharing the storage connection.
+    full:
+        Clear source, dense, and lexical indexes before rebuilding.
     """
     embedder = embedder or FastEmbedEmbedder()
     storage = storage or DuckDBAdapter(DEFAULT_DB_PATH)
@@ -215,6 +223,10 @@ def build_index(
 
     vector_store.setup(embedder.dims)
     lexical_store.setup()
+    if full:
+        storage.clear_nodes()
+        vector_store.clear()
+        lexical_store.clear()
 
     if _con is not None:
         initialize_memo_store(_con)

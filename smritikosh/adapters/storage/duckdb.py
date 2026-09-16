@@ -193,34 +193,12 @@ class DuckDBAdapter(StorageAdapter):
             self.con.rollback()
             raise
 
-    def clear_index(self) -> None:
-        """Clear source, dense, and lexical index rows for a full rebuild."""
-        tables: tuple[str, ...] = (
-            "lexical_terms",
-            "lexical_documents",
-            "lexical_metadata",
-            "vectors",
-            "nodes",
-        )
-        self.con.begin()
-        try:
-            for table in tables:
-                if self._table_exists(table):
-                    self.con.execute(f"DELETE FROM {table}")  # noqa: S608
-            self.con.commit()
-        except Exception:
-            self.con.rollback()
-            raise
+    def clear_nodes(self) -> None:
+        """Remove all indexed source nodes."""
+        self.con.execute("DELETE FROM nodes")
 
     # ------------------------------------------------------------------ misc
 
     def close(self) -> None:
         if self._owns_con:
             self.con.close()
-
-    def _table_exists(self, name: str) -> bool:
-        row = self.con.execute(
-            "SELECT 1 FROM duckdb_tables() WHERE table_name = ?",
-            [name],
-        ).fetchone()
-        return row is not None

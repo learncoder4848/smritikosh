@@ -82,6 +82,9 @@ class LexicalStore(Protocol):
     def delete_path(self, path: str) -> None:
         """Remove every lexical document belonging to a path."""
 
+    def clear(self) -> None:
+        """Remove every lexical document and posting."""
+
     def search(
         self,
         query: str,

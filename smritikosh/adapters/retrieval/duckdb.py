@@ -63,6 +63,11 @@ class DuckDBBm25Store(LexicalStore):
             );
             """
         )
+        version_row: tuple[str] | None = self._connection.execute(
+            "SELECT value FROM lexical_metadata WHERE key = 'schema_version'"
+        ).fetchone()
+        if version_row is not None and version_row[0] != _LEXICAL_SCHEMA_VERSION:
+            self.clear()
         self._connection.execute(
             "INSERT OR REPLACE INTO lexical_metadata VALUES ('schema_version', ?)",
             [_LEXICAL_SCHEMA_VERSION],
@@ -74,7 +79,6 @@ class DuckDBBm25Store(LexicalStore):
             return
         unique_chunks: dict[str, Chunk] = {chunk.id: chunk for chunk in chunks}
         chunk_ids: list[str] = list(unique_chunks)
-        self._delete_many(chunk_ids)
         documents: list[tuple[str, str, int]] = []
         postings: list[tuple[str, str, int]] = []
         for chunk in unique_chunks.values():
@@ -84,14 +88,21 @@ class DuckDBBm25Store(LexicalStore):
             postings.extend(
                 (chunk.id, term, frequency) for term, frequency in frequencies.items()
             )
-        self._connection.executemany(
-            "INSERT INTO lexical_documents VALUES (?, ?, ?)",
-            documents,
-        )
-        self._connection.executemany(
-            "INSERT INTO lexical_terms VALUES (?, ?, ?)",
-            postings,
-        )
+        self._connection.begin()
+        try:
+            self._delete_many(chunk_ids)
+            self._connection.executemany(
+                "INSERT INTO lexical_documents VALUES (?, ?, ?)",
+                documents,
+            )
+            self._connection.executemany(
+                "INSERT INTO lexical_terms VALUES (?, ?, ?)",
+                postings,
+            )
+            self._connection.commit()
+        except Exception:
+            self._connection.rollback()
+            raise
 
     def delete(self, chunk_id: str) -> None:
         """Remove one lexical document and its postings."""
@@ -104,6 +115,11 @@ class DuckDBBm25Store(LexicalStore):
             [path],
         ).fetchall()
         self._delete_many([row[0] for row in rows])
+
+    def clear(self) -> None:
+        """Remove every lexical document and posting."""
+        self._connection.execute("DELETE FROM lexical_terms")
+        self._connection.execute("DELETE FROM lexical_documents")
 
     def search(
         self,

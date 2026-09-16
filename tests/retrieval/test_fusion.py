@@ -93,3 +93,38 @@ def test_should_count_split_symbol_once_per_channel_and_facet() -> None:
 
     assert len(candidates) == 1
     assert candidates[0].score.fused == 1 / 61
+
+
+def test_should_keep_same_named_non_overlapping_methods_distinct() -> None:
+    first = SearchResult(
+        "src/a.py",
+        1,
+        10,
+        "class First",
+        0.9,
+        "method",
+        "save",
+    )
+    second = SearchResult(
+        "src/a.py",
+        30,
+        40,
+        "class Second",
+        0.8,
+        "method",
+        "save",
+    )
+
+    candidates = fuse_ranked_results(
+        {
+            "facet": {
+                RetrievalChannel.DENSE: [first, second],
+                RetrievalChannel.LEXICAL: [],
+            }
+        }
+    )
+
+    assert [(item.result.start_line, item.result.end_line) for item in candidates] == [
+        (1, 10),
+        (30, 40),
+    ]

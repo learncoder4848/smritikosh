@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Final
 
 from smritikosh.models import SearchResult
@@ -27,9 +27,50 @@ class _Accumulator:
     facet_scores: dict[str, float] = field(default_factory=dict)
 
 
-def _identity(result: SearchResult) -> tuple[str, str, str | None]:
-    identity: str = result.symbol or f"@{result.start_line}:{result.end_line}"
-    return (result.path, identity, result.chunk_kind)
+def _same_definition(left: SearchResult, right: SearchResult) -> bool:
+    if (
+        left.path != right.path
+        or left.chunk_kind != right.chunk_kind
+        or left.symbol != right.symbol
+    ):
+        return False
+    if left.symbol is None:
+        return (left.chunk_id is not None and left.chunk_id == right.chunk_id) or (
+            left.start_line == right.start_line and left.end_line == right.end_line
+        )
+    return max(left.start_line, right.start_line) <= min(
+        left.end_line,
+        right.end_line,
+    )
+
+
+def _merge_span(left: SearchResult, right: SearchResult) -> SearchResult:
+    return replace(
+        left,
+        start_line=min(left.start_line, right.start_line),
+        end_line=max(left.end_line, right.end_line),
+    )
+
+
+def _canonicalize(results: list[SearchResult]) -> list[SearchResult]:
+    canonical: list[SearchResult] = []
+    for result in results:
+        match_index: int | None = next(
+            (
+                index
+                for index, existing in enumerate(canonical)
+                if _same_definition(existing, result)
+            ),
+            None,
+        )
+        if match_index is None:
+            canonical.append(result)
+        else:
+            canonical[match_index] = _merge_span(
+                canonical[match_index],
+                result,
+            )
+    return canonical
 
 
 def fuse_ranked_results(
@@ -40,22 +81,23 @@ def fuse_ranked_results(
     """Fuse dense and lexical ranks with Reciprocal Rank Fusion."""
     if rrf_k <= 0:
         raise ValueError("rrf_k must be positive")
-    accumulated: dict[tuple[str, str, str | None], _Accumulator] = {}
+    accumulated: list[_Accumulator] = []
     for facet, channels in ranked.items():
         for channel, results in channels.items():
-            unique_results: list[SearchResult] = []
-            seen: set[tuple[str, str, str | None]] = set()
-            for result in results:
-                key: tuple[str, str, str | None] = _identity(result)
-                if key not in seen:
-                    seen.add(key)
-                    unique_results.append(result)
-            for rank, result in enumerate(unique_results, start=1):
-                key: tuple[str, str, str | None] = _identity(result)
-                item: _Accumulator = accumulated.setdefault(
-                    key,
-                    _Accumulator(result=result),
+            for rank, result in enumerate(_canonicalize(results), start=1):
+                item: _Accumulator | None = next(
+                    (
+                        existing
+                        for existing in accumulated
+                        if _same_definition(existing.result, result)
+                    ),
+                    None,
                 )
+                if item is None:
+                    item = _Accumulator(result=result)
+                    accumulated.append(item)
+                else:
+                    item.result = _merge_span(item.result, result)
                 contribution: float = 1.0 / (rrf_k + rank)
                 if rank <= _FACET_COVERAGE_RANK:
                     item.facets.add(facet)
@@ -78,7 +120,7 @@ def fuse_ranked_results(
                 fused=item.fused,
             ),
         )
-        for item in accumulated.values()
+        for item in accumulated
     ]
     candidates.sort(
         key=lambda candidate: (
