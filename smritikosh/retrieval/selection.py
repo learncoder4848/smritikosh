@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from collections import Counter
 
-from smritikosh.models.retrieval import EvidenceCandidate, EvidenceOptions
+from smritikosh.models.retrieval import HybridSearchOptions, RankedCandidate
 from smritikosh.retrieval.tokenizer import tokenize_code
 
-__all__ = ["select_evidence_seeds"]
+__all__ = ["select_seeds"]
 
 
-def _tokens(candidate: EvidenceCandidate) -> set[str]:
+def _tokens(candidate: RankedCandidate) -> set[str]:
     result = candidate.result
     return set(
         tokenize_code(" ".join((result.path, result.symbol or "", result.snippet)))
@@ -23,7 +23,7 @@ def _jaccard(left: set[str], right: set[str]) -> float:
 
 
 def _can_select(
-    candidate: EvidenceCandidate,
+    candidate: RankedCandidate,
     *,
     selected_ids: set[int],
     file_counts: Counter[str],
@@ -35,18 +35,18 @@ def _can_select(
     )
 
 
-def select_evidence_seeds(
-    candidates: list[EvidenceCandidate],
+def select_seeds(
+    candidates: list[RankedCandidate],
     facets: tuple[str, ...],
     *,
-    options: EvidenceOptions,
-) -> list[EvidenceCandidate]:
+    options: HybridSearchOptions,
+) -> list[RankedCandidate]:
     """Reserve facet coverage, then apply MMR for relevance and diversity."""
-    selected: list[EvidenceCandidate] = []
+    selected: list[RankedCandidate] = []
     selected_ids: set[int] = set()
     file_counts: Counter[str] = Counter()
     for facet in facets:
-        eligible: list[EvidenceCandidate] = [
+        eligible: list[RankedCandidate] = [
             candidate for candidate in candidates if facet in candidate.facets
         ]
         eligible.sort(
@@ -56,7 +56,7 @@ def select_evidence_seeds(
                 candidate.result.path,
             )
         )
-        match: EvidenceCandidate | None = next(
+        match: RankedCandidate | None = next(
             (
                 candidate
                 for candidate in eligible
@@ -82,7 +82,7 @@ def select_evidence_seeds(
         id(candidate): _tokens(candidate) for candidate in candidates
     }
     while len(selected) < options.max_seeds:
-        available: list[EvidenceCandidate] = [
+        available: list[RankedCandidate] = [
             candidate
             for candidate in candidates
             if _can_select(
@@ -95,7 +95,7 @@ def select_evidence_seeds(
         if not available:
             break
 
-        def utility(candidate: EvidenceCandidate) -> tuple[float, str, int]:
+        def utility(candidate: RankedCandidate) -> tuple[float, str, int]:
             relevance: float = candidate.score.fused / maximum_relevance
             redundancy: float = max(
                 (
@@ -112,7 +112,7 @@ def select_evidence_seeds(
             )
             return (score, candidate.result.path, -candidate.result.start_line)
 
-        chosen: EvidenceCandidate = max(available, key=utility)
+        chosen: RankedCandidate = max(available, key=utility)
         selected.append(chosen)
         selected_ids.add(id(chosen))
         file_counts[chosen.result.path] += 1

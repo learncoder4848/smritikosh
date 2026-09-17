@@ -9,17 +9,17 @@ from typing import Final
 from smritikosh.models import SearchResult
 from smritikosh.models.retrieval import (
     CandidateScore,
-    EvidenceCandidate,
-    EvidenceOptions,
+    HybridSearchOptions,
     IndexedChunk,
     OutlineEntry,
+    RankedCandidate,
     SourceLine,
     TextMatch,
 )
 from smritikosh.ports.retrieval import SourceReader
 from smritikosh.retrieval.tokenizer import tokenize_code
 
-__all__ = ["EvidenceExpander"]
+__all__ = ["CandidateExpander"]
 
 _DIRECT_CALL: Final[re.Pattern[str]] = re.compile(
     r"(?:@|(?<![\w.]))([A-Za-z_][A-Za-z0-9_]*)\s*\("
@@ -46,7 +46,7 @@ _IGNORED_CALLS: Final[frozenset[str]] = frozenset(
 )
 
 
-class EvidenceExpander:
+class CandidateExpander:
     """Expand selected seeds without repository- or domain-specific rules."""
 
     def __init__(self, reader: SourceReader) -> None:
@@ -56,20 +56,20 @@ class EvidenceExpander:
 
     def expand(
         self,
-        seeds: list[EvidenceCandidate],
+        seeds: list[RankedCandidate],
         *,
-        options: EvidenceOptions,
-    ) -> list[EvidenceCandidate]:
+        options: HybridSearchOptions,
+    ) -> list[RankedCandidate]:
         """Expand definitions and one dependency round, preserving seed priority."""
-        parents: list[EvidenceCandidate] = [
+        parents: list[RankedCandidate] = [
             replace(seed, result=self._complete_definition(seed.result))
             for seed in seeds
         ]
-        expanded: list[EvidenceCandidate] = []
+        expanded: list[RankedCandidate] = []
         known: set[tuple[str, str, str | None]] = set()
         for parent in parents:
             self._append_unique(expanded, known, parent)
-        groups: list[list[EvidenceCandidate]] = [
+        groups: list[list[RankedCandidate]] = [
             self._dependencies(
                 parent,
                 limit=options.max_dependencies_per_seed,
@@ -84,17 +84,17 @@ class EvidenceExpander:
 
     def _dependencies(
         self,
-        parent: EvidenceCandidate,
+        parent: RankedCandidate,
         *,
         limit: int,
-    ) -> list[EvidenceCandidate]:
+    ) -> list[RankedCandidate]:
         result: SearchResult = parent.result
         lines: list[SourceLine] = self._reader.get_source_lines(
             result.path,
             start_line=result.start_line,
             end_line=min(result.end_line, result.start_line + 119),
         )
-        dependencies: list[tuple[int, int, EvidenceCandidate]] = []
+        dependencies: list[tuple[int, int, RankedCandidate]] = []
         facet_roots: set[str] = {
             token[:5]
             for facet in parent.facets
@@ -122,7 +122,7 @@ class EvidenceExpander:
                     (
                         len(facet_roots & result_roots),
                         -position,
-                        EvidenceCandidate(
+                        RankedCandidate(
                             result=definition,
                             facets=set(parent.facets),
                             facet_scores=dict(parent.facet_scores),
@@ -203,9 +203,9 @@ class EvidenceExpander:
 
     @staticmethod
     def _append_unique(
-        candidates: list[EvidenceCandidate],
+        candidates: list[RankedCandidate],
         known: set[tuple[str, str, str | None]],
-        candidate: EvidenceCandidate,
+        candidate: RankedCandidate,
     ) -> None:
         result: SearchResult = candidate.result
         identity: str = result.symbol or f"@{result.start_line}:{result.end_line}"

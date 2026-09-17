@@ -9,14 +9,13 @@ from smritikosh.models.types import SearchResult
 
 __all__ = [
     "CandidateScore",
-    "EvidenceCandidate",
-    "EvidenceItem",
-    "EvidenceOptions",
-    "EvidencePack",
+    "HybridSearchOptions",
     "IndexInfo",
     "IndexedChunk",
     "OutlineEntry",
+    "RankedCandidate",
     "RetrievalChannel",
+    "SearchLocation",
     "SearchOptions",
     "SourceLine",
     "TextMatch",
@@ -100,7 +99,7 @@ class CandidateScore:
 
 
 @dataclass
-class EvidenceCandidate:
+class RankedCandidate:
     """Represent a deduplicated candidate that may cover several facets."""
 
     result: SearchResult
@@ -110,15 +109,13 @@ class EvidenceCandidate:
 
 
 @dataclass(frozen=True)
-class EvidenceOptions:
-    """Bound hybrid candidate generation and evidence selection."""
+class HybridSearchOptions:
+    """Bound hybrid candidate generation and result selection."""
 
     candidates_per_channel: int = 30
     max_candidates: int = 400
     max_seeds: int = 16
     max_results: int = 24
-    max_source_lines: int = 120
-    max_chars: int = 45_000
     rrf_k: int = 60
     mmr_lambda: float = 0.7
     max_per_file: int = 2
@@ -139,21 +136,15 @@ class EvidenceOptions:
 
 
 @dataclass(frozen=True)
-class EvidenceItem:
-    """Carry one selected source span and its retrieval provenance."""
+class SearchLocation:
+    """Locate one selected definition and the facets that matched it.
 
-    evidence_id: str
+    A location carries no source: ``explore chunks --range`` reads the exact
+    lines when the caller decides which of them are worth reading.
+    """
+
+    path: str
+    start_line: int
+    end_line: int
+    symbol: str | None
     facets: tuple[str, ...]
-    result: SearchResult
-    source: str
-    source_truncated: bool
-
-
-@dataclass(frozen=True)
-class EvidencePack:
-    """Return bounded evidence plus observable facet coverage."""
-
-    items: tuple[EvidenceItem, ...]
-    covered_facets: tuple[str, ...]
-    missing_facets: tuple[str, ...]
-    truncated: bool

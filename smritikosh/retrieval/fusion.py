@@ -8,7 +8,7 @@ from typing import Final
 from smritikosh.models import SearchResult
 from smritikosh.models.retrieval import (
     CandidateScore,
-    EvidenceCandidate,
+    RankedCandidate,
     RetrievalChannel,
 )
 
@@ -77,7 +77,7 @@ def fuse_ranked_results(
     ranked: dict[str, dict[RetrievalChannel, list[SearchResult]]],
     *,
     rrf_k: int = 60,
-) -> list[EvidenceCandidate]:
+) -> list[RankedCandidate]:
     """Fuse dense and lexical ranks with Reciprocal Rank Fusion."""
     if rrf_k <= 0:
         raise ValueError("rrf_k must be positive")
@@ -109,8 +109,8 @@ def fuse_ranked_results(
                     item.dense_rank = min(item.dense_rank or rank, rank)
                 elif channel is RetrievalChannel.LEXICAL:
                     item.lexical_rank = min(item.lexical_rank or rank, rank)
-    candidates: list[EvidenceCandidate] = [
-        EvidenceCandidate(
+    candidates: list[RankedCandidate] = [
+        RankedCandidate(
             result=item.result,
             facets=item.facets,
             facet_scores=item.facet_scores,

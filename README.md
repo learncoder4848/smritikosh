@@ -60,8 +60,8 @@ bundles, and fixture directories.
   — local-filesystem, DuckDB, and sentence-transformer implementations of those
   contracts.
 - [`smritikosh/retrieval`](https://github.com/learncoder4848/smritikosh/tree/main/smritikosh/retrieval)
-  — hybrid candidate fusion, diverse selection, generic expansion, and bounded
-  evidence packing.
+  — hybrid candidate fusion, diverse selection, and generic definition and
+  dependency expansion.
 - [`smritikosh/queries`](https://github.com/learncoder4848/smritikosh/tree/main/smritikosh/queries)
   — packaged tree-sitter tag queries.
 
@@ -128,70 +128,53 @@ artifacts that each tool regenerates on demand.
 
 ## Read-only exploration CLI
 
-The `explore` commands expose the indexed repository to agents without reading
-the source tree or taking a DuckDB write lock:
+Two `explore` commands expose the indexed repository to agents without reading
+the source tree or taking a DuckDB write lock. `search` finds the ranges worth
+reading, and `chunks` reads them:
 
 ```bash
-smritikosh explore tools
-
-smritikosh explore info --db-path smritikosh.duckdb
-
 smritikosh explore search \
-  "where is access control enforced" \
-  "authorization decision logic" \
-  --exclude-path 'tests/%' \
-  --db-path smritikosh.duckdb
-
-smritikosh explore paths permissions \
-  --db-path smritikosh.duckdb
-
-smritikosh explore chunks src/auth/permissions.py \
-  --db-path smritikosh.duckdb
-
-smritikosh explore chunks src/auth/permissions.py \
-  --start-line 40 --end-line 52 \
-  --db-path smritikosh.duckdb
-
-smritikosh explore text is_allowed \
-  --path src/auth/permissions.py \
-  --db-path smritikosh.duckdb
-
-smritikosh explore evidence \
   "authorization decision flow" \
   "authorization failure handling" \
   "authorization tests" \
   --db-path smritikosh.duckdb
+
+smritikosh explore chunks \
+  --range src/auth/permissions.py 40 52 \
+  --db-path smritikosh.duckdb
 ```
 
-The two calls that answer most questions are `search`, which reports where the
-answer lives, and `chunks PATH --start-line N --end-line M`, which prints that
-source with line numbers. Without a line range `chunks` outlines what a file
-defines rather than printing it; `--full` restores the whole-chunk dump, on
-both commands.
+`search` takes one question as four to eight focused facets. Each facet is
+retrieved independently from dense vectors and an incremental Okapi BM25 index,
+the two rankings are combined with Reciprocal Rank Fusion, coverage is reserved
+for every facet, redundant candidates are dropped, and the survivors are
+expanded to complete definitions plus their direct references.
 
-Results come back as [TOON](https://toonformat.dev) — a tabular array that
-declares its columns once and then streams one row per hit:
+Results come back as [TOON](https://toonformat.dev) — tabular arrays that
+declare their columns once and then stream one row each. Facets are labelled by
+query id so no row repeats the query text it matched:
 
 ```text
-[2]{path,start_line,end_line,score,chunk_kind,symbol}:
-  src/auth/permissions.py,59,81,0.434,class,PermissionChecker
-  src/auth/policy.py,176,193,0.436,method,evaluate
+queries[3]{id,query}:
+  Q1,authorization decision flow
+  Q2,authorization failure handling
+  Q3,authorization tests
+search_results[3]{path,start_line,end_line,symbol,facets}:
+  src/auth/permissions.py,59,81,PermissionChecker,Q1|Q2
+  src/auth/policy.py,176,193,evaluate,Q1
+  tests/auth/test_policy.py,14,38,test_denies_expired_grant,Q3
 ```
 
-That costs roughly half of the equivalent JSON. `--prose` switches any command
-to human-readable output. Source lines are exempt: TOON must quote any value
-containing a colon, so a table of code lines costs more than the numbered text
-it would replace, and `chunks` with a line range always prints numbered text.
+`search` returns locations only. Copy a row's path and line range straight into
+`chunks --range PATH START END`, which rebuilds that source once and prints it
+with line numbers; repeat `--range` to read several spans in one process.
+Without a line range, `chunks PATH` outlines what the file defines instead of
+printing it, and `--full` dumps every stored chunk.
 
-Multiple semantic queries are embedded in one model call. Results are
-deduplicated and ranked by each chunk's best score across those queries; a hit
-that mostly repeats the lines of a better-scoring one is dropped. Path, text,
-and chunk commands do not load the embedding model.
+`--prose` switches either command to human-readable output. Source lines are
+exempt from TOON: it must quote any value containing a colon, so a table of
+code lines costs more than the numbered text it would replace.
 
-`explore evidence` uses dense retrieval and an incremental Okapi BM25 index,
-combines their independent ranks with Reciprocal Rank Fusion, reserves coverage
-for each supplied facet, and applies diverse context selection before expanding
-definitions and direct references. Output is capped at 45,000 characters.
 See [`SEARCH_PIPELINE.md`](SEARCH_PIPELINE.md) for the complete indexing,
 retrieval, ranking, expansion, and ports/adapters walkthrough.
 
@@ -201,12 +184,12 @@ Indexes created before hybrid retrieval need one rebuild:
 smritikosh index /path/to/repo --db-path smritikosh.duckdb --full
 ```
 
-`explore tools` returns a machine-readable command manifest and recommended
-workflow. An agent instruction can therefore stay short:
+An agent instruction can therefore stay short:
 
 ```text
 Use the Smritikosh exploration CLI instead of Grep for code discovery.
-Run `uv run smritikosh explore tools` to discover its commands.
+Run `smritikosh explore search` with focused facets, then
+`smritikosh explore chunks --range PATH START END` for the ranges worth reading.
 ```
 
 ## Contributing

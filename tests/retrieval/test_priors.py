@@ -3,8 +3,8 @@
 from smritikosh.models import SearchResult
 from smritikosh.models.retrieval import (
     CandidateScore,
-    EvidenceCandidate,
-    EvidenceOptions,
+    HybridSearchOptions,
+    RankedCandidate,
 )
 from smritikosh.retrieval.priors import apply_metadata_priors
 
@@ -20,8 +20,8 @@ class _Reader:
         return []
 
 
-def _candidate(path: str) -> EvidenceCandidate:
-    return EvidenceCandidate(
+def _candidate(path: str) -> RankedCandidate:
+    return RankedCandidate(
         result=SearchResult(path, 1, 2, "code", 0.5, "function", "run"),
         facets={"order export retry"},
         facet_scores={"order export retry": 0.1},
@@ -38,7 +38,7 @@ def test_should_prefer_topic_source_and_demote_unrequested_documentation() -> No
         [documentation, sibling, topic],
         ("order export flow",),
         _Reader(),
-        options=EvidenceOptions(),
+        options=HybridSearchOptions(),
     )
 
     assert [candidate.result.path for candidate in ranked] == [
