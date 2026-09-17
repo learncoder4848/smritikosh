@@ -1,212 +1,216 @@
-# smritikosh
+<div align="center">
 
-Semantic vector search over source-code repositories. Smritikosh parses source
-files with tree-sitter, identifies meaningful definitions, turns them into
-chunks, embeds those chunks, and stores the vectors in DuckDB.
+<img src="assets/hero.svg" alt="Smritikosh parses a repository into definition-aligned chunks, indexes them with dense vectors and BM25 postings, and returns exact source ranges to a coding agent" width="100%">
 
-## Pipeline
+# Your agents deserve _exact evidence._
 
-```text
-  FileSource            FileRouter
-  (lists + reads)       (extension -> language + strategy)
-        |                    |
-        +--------> discovery <+        select once, per file
-                      |
-                      |  3 gates: excluded dirs -> gitignore -> router
-                      v
-                  SourceFile          path, language, content,
-                      |               has_tags_scm, strategy
-                      v
-        [ file unchanged? ] --yes--> skip file          file_hashes
-                      | no
-                      v
-                   parser              text -> tree-sitter AST
-                      v
-                  extractor            AST -> definition captures (tags.scm)
-                      v
-                   chunker             captures -> chunks (ast|section|regex)
-                      v
-        [ chunk text seen? ] --yes--> reuse vector      content_hash
-                      | no
-                      v
-                  embedder             chunk text -> vector
-                      v
-                   DuckDB              nodes, vectors, file_hashes, memo_cache
-```
+**Star us ❤️ →** [Smritikosh on GitHub](https://github.com/learncoder4848/smritikosh) ·
+[PyPI](https://pypi.org/project/smritikosh/) ·
+[Search pipeline](SEARCH_PIPELINE.md) ·
+[Benchmarks](#benchmarks) ·
+[Issues](https://github.com/learncoder4848/smritikosh/issues)
 
-Routing happens once, in discovery, and is carried on the `SourceFile`. Later
-stages read `language`, `has_tags_scm`, and `strategy` off that object rather
-than re-deriving them from the path.
+Smritikosh turns a repository into a local code-intelligence index and hands your agent the
+handful of source ranges that answer a question — instead of a tour of the file tree. Index
+once, explore read-only, cite `PATH:START-END`. No API key, no hosted vector database, no
+source leaving your machine.
 
-Two skip checks make re-indexing cheap. A file whose SHA-256 is unchanged is
-skipped whole. A chunk is keyed by the hash of its own text, so editing one
-function in a file re-embeds only that function's chunk.
+**Local-first** · CPU embeddings · **Δ incremental** · only changed files · **Agent-native** · one CLI, three commands
 
-The extractor uses packaged `tags.scm` queries for Python, Java, Kotlin,
-TypeScript, JavaScript, Markdown, and JSON. TOML bypasses extraction and uses
-regex chunking. JSON is indexed except for known noise — lockfiles, minified
-bundles, and fixture directories.
+[![CI](https://github.com/learncoder4848/smritikosh/actions/workflows/ci.yml/badge.svg)](https://github.com/learncoder4848/smritikosh/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/smritikosh?color=4C8DFF)](https://pypi.org/project/smritikosh/)
+[![Downloads](https://img.shields.io/pypi/dm/smritikosh?color=34D399)](https://pypi.org/project/smritikosh/)
+[![Python 3.10–3.13](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue)](https://www.python.org/)
+[![Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange)](#status)
 
-## Package structure
+</div>
 
-- [`smritikosh/indexing`](https://github.com/learncoder4848/smritikosh/tree/main/smritikosh/indexing)
-  — file router, discovery, parser, extractor, chunker, and pipeline
-  orchestration.
-- [`smritikosh/engine`](https://github.com/learncoder4848/smritikosh/tree/main/smritikosh/engine)
-  — memoization, tracking, batching, and concurrent pipeline helpers.
-- [`smritikosh/ports`](https://github.com/learncoder4848/smritikosh/tree/main/smritikosh/ports)
-  — file-source, storage, vector-store, and embedder contracts.
-- [`smritikosh/adapters`](https://github.com/learncoder4848/smritikosh/tree/main/smritikosh/adapters)
-  — local-filesystem, DuckDB, and sentence-transformer implementations of those
-  contracts.
-- [`smritikosh/retrieval`](https://github.com/learncoder4848/smritikosh/tree/main/smritikosh/retrieval)
-  — hybrid candidate fusion, diverse selection, and generic definition and
-  dependency expansion.
-- [`smritikosh/queries`](https://github.com/learncoder4848/smritikosh/tree/main/smritikosh/queries)
-  — packaged tree-sitter tag queries.
-
-The extractor stays under `indexing`: it transforms internal pipeline data
-(`ParsedFile -> list[Capture]`) rather than adapting an external system.
-
-## Installation
+## Get started
 
 ```bash
 pip install smritikosh
 ```
 
-Or with uv, to get the CLI on your PATH without managing a virtualenv:
+Index a repository once. Every later run touches only what changed.
 
 ```bash
-uv tool install smritikosh
-```
+# 1. Build the local index.
+smritikosh index /path/to/repository --db-path smritikosh.duckdb
 
-## Development setup
+# 2. Let the agent discover the workflow, syntax, and answer contract.
+smritikosh explore tools --toon
 
-Both **uv** and **Poetry** are supported. uv is recommended for local development
-— it resolves and installs the full dependency tree roughly 5× faster than
-Poetry, thanks to a Rust-based resolver and parallel downloads. (Measured on
-this project: uv locked 94 packages in ~46 s vs Poetry's ~3.5 min.)
-
-### uv (recommended)
-
-```bash
-# Install uv: https://docs.astral.sh/uv/getting-started/installation/
-uv sync                  # install deps + project into .venv
-uv sync --no-install-project  # deps only (skip the editable install)
-```
-
-### Poetry
-
-```bash
-# Requires Poetry >= 2.3
-poetry install           # install deps + project into .venv
-poetry install --no-root # deps only
-```
-
-### Running tests
-
-```bash
-# uv
-uv run pytest
-
-# Poetry / activated venv
-make test
-```
-
-Both tools create a `.venv` in the project root and share the same `Makefile`
-targets. Pass `TOOL=uv` or `TOOL=poetry` to override the default:
-
-```bash
-make install TOOL=uv
-make lock    TOOL=uv    # regenerates uv.lock
-make test               # always uses .venv/bin/python directly
-```
-
-Lock files are not committed. Smritikosh is a library, so installs resolve from
-the version ranges in `pyproject.toml`; `uv.lock` and `poetry.lock` are local
-artifacts that each tool regenerates on demand.
-
-## Read-only exploration CLI
-
-Two `explore` commands expose the indexed repository to agents without reading
-the source tree or taking a DuckDB write lock. `search` finds the ranges worth
-reading, and `chunks` reads them:
-
-```bash
+# 3. Search one question through distinct facets.
 smritikosh explore search \
   "authorization decision flow" \
+  "authorization policy state and inputs" \
   "authorization failure handling" \
   "authorization tests" \
+  --max-results 12 \
   --db-path smritikosh.duckdb
 
+# 4. Read only the ranges worth reading.
 smritikosh explore chunks \
-  --range src/auth/permissions.py 40 52 \
+  --range src/auth/permissions.py 59 81 \
+  --range tests/auth/test_policy.py 14 38 \
   --db-path smritikosh.duckdb
 ```
 
-`search` takes one question as four to eight focused facets. Each facet is
-retrieved independently from dense vectors and an incremental Okapi BM25 index,
-the two rankings are combined with Reciprocal Rank Fusion, coverage is reserved
-for every facet, redundant candidates are dropped, and the survivors are
-expanded to complete definitions plus their direct references.
+The default embedder — `nomic-ai/CodeRankEmbed` — runs locally through ONNX Runtime, so the
+only network access is a one-time model download.
 
-Results come back as [TOON](https://toonformat.dev) — tabular arrays that
-declare their columns once and then stream one row each. Facets are labelled by
-query id so no row repeats the query text it matched:
+> **Driving an AI coding agent?**
+> `explore tools` carries the workflow, search standards, and citation contract, so the
+> instruction you write stays four lines long:
+>
+> ```text
+> Question: {{QUESTION}}
+> Use only the Smritikosh exploration CLI.
+> First run exactly: smritikosh explore tools --toon
+> Pass --db-path {{DATABASE_PATH}} to every subsequent command, and follow all guidance it returns.
+> ```
+
+## Retrieval — _built for agents, not for humans scrolling_
+
+<img src="assets/hybrid-retrieval.svg" alt="Each facet is retrieved from dense vectors and BM25 postings, fused with Reciprocal Rank Fusion, reserved for facet coverage, de-duplicated with Maximal Marginal Relevance, then expanded to complete definitions plus one bounded reference hop" width="100%">
+
+Ask one question as four facets — primary flow, state or data, failure handling, tests. Each
+facet is retrieved independently from local embeddings **and** an incremental Okapi BM25 index,
+so meaning and exact identifiers both land. Reciprocal Rank Fusion merges the rankings, facet
+reservation keeps every angle represented, Maximal Marginal Relevance drops near-duplicates,
+and survivors expand to complete definitions plus one bounded direct-reference hop.
+
+Results arrive as [TOON](https://toonformat.dev) — columns declared once, then one row each:
 
 ```text
-queries[3]{id,query}:
+queries[4]{id,query}:
   Q1,authorization decision flow
-  Q2,authorization failure handling
-  Q3,authorization tests
+  Q2,authorization policy state and inputs
+  Q3,authorization failure handling
+  Q4,authorization tests
 search_results[3]{path,start_line,end_line,symbol,facets}:
-  src/auth/permissions.py,59,81,PermissionChecker,Q1|Q2
+  src/auth/permissions.py,59,81,PermissionChecker,Q1|Q3
   src/auth/policy.py,176,193,evaluate,Q1
-  tests/auth/test_policy.py,14,38,test_denies_expired_grant,Q3
+  tests/auth/test_policy.py,14,38,test_denies_expired_grant,Q4
 ```
 
-`search` returns locations only. Copy a row's path and line range straight into
-`chunks --range PATH START END`, which rebuilds that source once and prints it
-with line numbers; repeat `--range` to read several spans in one process.
-Without a line range, `chunks PATH` outlines what the file defines instead of
-printing it, and `--full` dumps every stored chunk.
+`search` returns locations only. Copy a row straight into `chunks --range PATH START END` to
+rebuild that source with stable line numbers, repeating `--range` to read several spans in one
+process. `chunks PATH` outlines what a file defines; `--prose` switches either command to
+human-readable output.
 
-`--prose` switches either command to human-readable output. Source lines are
-exempt from TOON: it must quote any value containing a colon, so a table of
-code lines costs more than the numbered text it would replace.
+## Why _incremental?_
 
-See [`SEARCH_PIPELINE.md`](SEARCH_PIPELINE.md) for the complete indexing,
-retrieval, ranking, expansion, and ports/adapters walkthrough.
+<img src="assets/incremental.svg" alt="On re-index, unchanged files are skipped by SHA-256 while changed files are re-parsed, re-chunked and re-embedded, with existing chunk vectors reused where content is unchanged" width="100%">
 
-Indexes created before hybrid retrieval need one rebuild:
+An index that goes stale is a liability: the agent cites line numbers that moved. Smritikosh
+compares file hashes, re-parses only what changed, retires stale chunks, and reuses existing
+content vectors — so keeping an index fresh costs a fraction of building it. Add `--watch` and
+it stays synchronized while you work.
+
+## What Smritikosh offers
+
+| | |
+| --- | --- |
+| **Agent-ready exploration** | `explore tools` teaches the model how to search, verify, cite, and stop. `search` finds candidates, `chunks` reads only the selected ranges. |
+| **Hybrid search** | Dense vectors for meaning, BM25 for identifiers, RRF for fusion, facet reservation for coverage, MMR for diversity. |
+| **Definition-aligned evidence** | Tree-sitter queries keep classes, functions, and methods whole, so a range is always a complete thought. |
+| **Δ incremental re-indexing** | SHA-256 file skipping, chunk-level memoization, stale-chunk retirement, optional `--watch`. |
+| **Local and read-only** | Source, metadata, vectors, BM25 postings, and incremental state live in one DuckDB file. Exploration never takes a write lock or touches the source tree. |
+| **Multi-language** | AST-aware indexing for Python, TypeScript, JavaScript, Java, and Kotlin; structure-aware strategies for Markdown, MDX, JSON, and TOML. |
+
+## What can you _build?_
+
+- **Code-aware agents** that retrieve the exact implementation and its tests before answering.
+- **Production-triage assistants** that trace ownership, events, gates, and failure paths across indexed services.
+- **Architecture discovery tools** that map definitions and direct references without loading whole repositories into context.
+- **Repository Q&A** whose citations point back to the precise ranges used as evidence.
+- **Offline developer tooling** — semantic code search with no source sent to a hosted service.
+
+## Benchmarks
+
+<img src="assets/benchmarks.svg" alt="Recorded session cost by benchmark task: production triage 0.381 dollars with Smritikosh versus 1.634 direct, interest computation 0.230 versus 0.330, architecture discovery 0.361 versus 1.259" width="100%">
+
+Paired agent sessions, same question and same effective model per pair:
+
+| Task | Smritikosh | Baseline | Effect |
+| --- | --- | --- | --- |
+| [Multi-repo production triage](benchmark/multi-repo/production-triage/concise-smritikosh-vs-direct-exploration.canvas.tsx) | 105.3 s · $0.381 | 193.4 s · $1.634 | 45.6% faster · 76.7% cheaper · 90.0% fewer tokens |
+| [Single-repo interest computation](benchmark/single-repo/interest-computation-smritikosh-vs-direct.canvas.tsx) | 68.4 s · $0.230 | 55.8 s · $0.330 | 30.4% cheaper · 32.5% fewer tokens · 40% fewer tool calls |
+| [Curated architecture discovery](benchmark/docs/ibiza-smritikosh-vs-selective-loading.canvas.tsx) | 56.6 s · $0.361 | 113.9 s · $1.259 | 50.3% faster · 71.3% cheaper · 80.4% fewer tokens |
+
+These are individual exported sessions, not statistically controlled measurements, and
+cumulative token counts include repeated cache reads. The artifacts deliberately record where
+each answer fell short — the interest run was 12.6 seconds slower, and the triage baseline
+covered more repositories — so the efficiency numbers can be read honestly.
+
+## How it works
+
+```text
+Repository
+   │
+   ├─ discovery + gitignore + language routing
+   ▼
+parse ──► extract definitions ──► chunk
+                                  │
+                     ┌────────────┴────────────┐
+                     ▼                         ▼
+               dense vectors              BM25 index
+                     └────────────┬────────────┘
+                                  ▼
+                    RRF + facet coverage + MMR
+                                  ▼
+                 complete definitions + references
+                                  ▼
+                    exact PATH:START-END evidence
+```
+
+On later runs, only changed files and chunks re-enter the expensive stages.
+
+- [`smritikosh/indexing`](smritikosh/indexing) — file router, discovery, parser, extractor, chunker, pipeline orchestration.
+- [`smritikosh/engine`](smritikosh/engine) — memoization, tracking, batching, concurrency helpers.
+- [`smritikosh/ports`](smritikosh/ports) — file-source, storage, vector-store, and embedder contracts.
+- [`smritikosh/adapters`](smritikosh/adapters) — local filesystem, DuckDB, and embedding implementations.
+- [`smritikosh/retrieval`](smritikosh/retrieval) — candidate fusion, diverse selection, definition and dependency expansion.
+- [`smritikosh/queries`](smritikosh/queries) — packaged tree-sitter tag queries.
+
+[`SEARCH_PIPELINE.md`](SEARCH_PIPELINE.md) walks the full indexing, ranking, expansion, and
+ports/adapters story. Indexes built before hybrid retrieval need one rebuild with
+`smritikosh index /path/to/repo --db-path smritikosh.duckdb --full`.
+
+## Development
+
+Python 3.10–3.13, managed with uv:
 
 ```bash
-smritikosh index /path/to/repo --db-path smritikosh.duckdb --full
+uv sync --all-groups
+uv run pytest
+uv run ruff check smritikosh/ tests/
 ```
 
-An agent instruction can therefore stay short:
+Poetry 2.x works too (`poetry install && make test`). CI runs the matrix across every
+supported Python version, enforces Ruff and 90% coverage, builds the wheel, and verifies that
+all packaged tree-sitter queries ship.
 
-```text
-Use the Smritikosh exploration CLI instead of Grep for code discovery.
-Run `smritikosh explore search` with focused facets, then
-`smritikosh explore chunks --range PATH START END` for the ranges worth reading.
-```
+## We love contributors
 
-## Contributing
-
-See [CONTRIBUTING.md](https://github.com/learncoder4848/smritikosh/blob/main/CONTRIBUTING.md)
-for commit and PR conventions.
-
-## Credits
+Every typo fix, new language query, retrieval tweak, and doc correction makes Smritikosh
+better — small PRs as welcome as large ones. Start with
+[CONTRIBUTING.md](CONTRIBUTING.md), or open an
+[issue](https://github.com/learncoder4848/smritikosh/issues) to talk it through first.
 
 Built by [Shantanu Vashishtha](https://github.com/learncoder4848) and
 [Sarvesh Sawant](https://github.com/devsarvesh92).
 
 ## Status
 
-Alpha. The pipeline runs end to end — `index` builds an index, `search` and
-`explore` query it, and re-indexing is incremental at both the file and the
-chunk level. Embedding runs locally on CPU through ONNX Runtime, so the only
-network access is a one-time model download.
+Alpha. The pipeline runs end to end: `index` builds, `search` and `explore` query, and
+re-indexing is incremental at both the file and the chunk level. The CLI surface may still
+change before 1.0.
 
-The CLI surface may still change before 1.0.
+<div align="center">
+
+Apache 2.0 · © Smritikosh contributors
+
+</div>

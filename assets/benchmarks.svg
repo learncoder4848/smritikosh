@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 330" width="960" height="330" role="img" aria-label="Recorded session cost in US dollars for three paired benchmark tasks: production triage 0.381 with Smritikosh versus 1.634 with direct exploration, interest computation 0.230 versus 0.330, architecture discovery 0.361 versus 1.259">
+  <title>Recorded session cost by benchmark task, Smritikosh versus direct exploration</title>
+  <style>
+    .s{font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+    .fg{fill:#E6EAF2}
+    .mut{fill:#9AA4BA}
+    .grid{stroke:#232D48;stroke-width:1}
+    .axis{stroke:#39435F;stroke-width:1.5}
+    @keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+    @keyframes fadein{from{opacity:0}to{opacity:1}}
+    .bar{transform-box:fill-box;transform-origin:bottom;animation:grow 1.1s cubic-bezier(.2,.7,.3,1) both}
+    .val{animation:fadein .5s ease-out .7s both}
+    @media (prefers-reduced-motion:reduce){.bar,.val{animation:none;transform:none;opacity:1}}
+  </style>
+
+  <rect x="0.5" y="0.5" width="959" height="329" rx="16" fill="#0B1020" stroke="#26304A"/>
+
+  <text class="s fg" x="32" y="42" font-size="15">Recorded session cost by benchmark task &#8212; lower is better</text>
+  <text class="s mut" x="32" y="64" font-size="12">Same question and same effective model (Claude Opus 5) within each pair; one exported session each.</text>
+
+  <rect x="690" y="30" width="11" height="11" rx="3" fill="#4C8DFF"/>
+  <text class="s mut" x="708" y="40" font-size="11">Smritikosh</text>
+  <rect x="800" y="30" width="11" height="11" rx="3" fill="#5A6784"/>
+  <text class="s mut" x="818" y="40" font-size="11">direct / selective loading</text>
+
+  <text class="s mut" x="30" y="196" font-size="11" transform="rotate(-90 30 196)" text-anchor="middle">recorded cost (USD)</text>
+
+  <line class="grid" x1="110" y1="262" x2="928" y2="262"/>
+  <line class="grid" x1="110" y1="213" x2="928" y2="213"/>
+  <line class="grid" x1="110" y1="164" x2="928" y2="164"/>
+  <line class="grid" x1="110" y1="115" x2="928" y2="115"/>
+  <text class="m mut" x="100" y="266" font-size="10" text-anchor="end">$0.00</text>
+  <text class="m mut" x="100" y="217" font-size="10" text-anchor="end">$0.50</text>
+  <text class="m mut" x="100" y="168" font-size="10" text-anchor="end">$1.00</text>
+  <text class="m mut" x="100" y="119" font-size="10" text-anchor="end">$1.50</text>
+  <line class="axis" x1="110" y1="96" x2="110" y2="262"/>
+  <line class="axis" x1="110" y1="262" x2="928" y2="262"/>
+
+  <rect class="bar" x="173" y="224.8" width="64" height="37.2" rx="3" fill="#4C8DFF"/>
+  <rect class="bar" x="253" y="102.5" width="64" height="159.5" rx="3" fill="#5A6784" style="animation-delay:.12s"/>
+  <text class="m fg val" x="205" y="216" font-size="10.5" text-anchor="middle">$0.381</text>
+  <text class="m fg val" x="285" y="94" font-size="10.5" text-anchor="middle" style="animation-delay:.8s">$1.634</text>
+  <text class="s fg" x="245" y="284" font-size="11.5" text-anchor="middle">production triage</text>
+  <text class="s mut" x="245" y="300" font-size="10" text-anchor="middle">5 services &#183; 76.7% lower</text>
+
+  <rect class="bar" x="443" y="239.6" width="64" height="22.4" rx="3" fill="#4C8DFF" style="animation-delay:.24s"/>
+  <rect class="bar" x="523" y="229.8" width="64" height="32.2" rx="3" fill="#5A6784" style="animation-delay:.36s"/>
+  <text class="m fg val" x="475" y="231" font-size="10.5" text-anchor="middle" style="animation-delay:.85s">$0.230</text>
+  <text class="m fg val" x="555" y="221" font-size="10.5" text-anchor="middle" style="animation-delay:.9s">$0.330</text>
+  <text class="s fg" x="515" y="284" font-size="11.5" text-anchor="middle">interest computation</text>
+  <text class="s mut" x="515" y="300" font-size="10" text-anchor="middle">single repo &#183; 30.4% lower</text>
+
+  <rect class="bar" x="713" y="226.8" width="64" height="35.2" rx="3" fill="#4C8DFF" style="animation-delay:.48s"/>
+  <rect class="bar" x="793" y="139.1" width="64" height="122.9" rx="3" fill="#5A6784" style="animation-delay:.6s"/>
+  <text class="m fg val" x="745" y="218" font-size="10.5" text-anchor="middle" style="animation-delay:.95s">$0.361</text>
+  <text class="m fg val" x="825" y="131" font-size="10.5" text-anchor="middle" style="animation-delay:1s">$1.259</text>
+  <text class="s fg" x="785" y="284" font-size="11.5" text-anchor="middle">architecture discovery</text>
+  <text class="s mut" x="785" y="300" font-size="10" text-anchor="middle">curated docs &#183; 71.3% lower</text>
+
+  <text class="s mut" x="519" y="320" font-size="10" text-anchor="middle">Horizontal axis: benchmark task &#183; Source: exported agent sessions, 16-17 Sep 2026 &#183; paired single runs, not controlled trials</text>
+</svg>

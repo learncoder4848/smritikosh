@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" width="960" height="300" role="img" aria-label="Each facet of one question is retrieved from dense vectors and BM25 postings, fused with Reciprocal Rank Fusion, reserved for facet coverage, de-duplicated with Maximal Marginal Relevance, then expanded to complete definitions plus one bounded reference hop">
+  <title>Hybrid retrieval pipeline: facets, two channels, fusion, selection, expansion</title>
+  <style>
+    .s{font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+    .lbl{font-size:10.5px;letter-spacing:.09em;fill:#8C97AE}
+    .fg{fill:#E6EAF2}
+    .mut{fill:#9AA4BA}
+    .panel{fill:#131A2E;stroke:#26304A;stroke-width:1}
+    .wire{stroke:#313D5C;stroke-width:1.5;fill:none}
+    @keyframes up{0%{opacity:0;transform:translate(0,0)}14%{opacity:1}86%{opacity:1}100%{opacity:0;transform:translate(54px,-44px)}}
+    @keyframes down{0%{opacity:0;transform:translate(0,0)}14%{opacity:1}86%{opacity:1}100%{opacity:0;transform:translate(54px,44px)}}
+    @keyframes across{0%{opacity:0;transform:translate(0,0)}14%{opacity:1}86%{opacity:1}100%{opacity:0;transform:translate(46px,0)}}
+    @keyframes sweep{0%,100%{opacity:.35}50%{opacity:1}}
+    .up{animation:up 2.2s linear infinite}
+    .down{animation:down 2.2s linear infinite}
+    .across{animation:across 1.6s linear infinite}
+    .sweep{animation:sweep 2.6s ease-in-out infinite}
+    @media (prefers-reduced-motion:reduce){.up,.down,.across,.sweep{animation:none}}
+  </style>
+
+  <rect x="0.5" y="0.5" width="959" height="299" rx="16" fill="#0B1020" stroke="#26304A"/>
+
+  <text class="s fg" x="32" y="44" font-size="15">Hybrid retrieval &#8212; one question, four facets, two channels</text>
+  <text class="s mut" x="32" y="66" font-size="12">Search returns candidate locations only; the agent reads the ranges it selects.</text>
+
+  <text class="s lbl" x="32" y="96">FACETS</text>
+  <rect class="panel" x="32.5" y="108.5" width="150" height="30" rx="8"/>
+  <text class="m fg" x="46" y="128" font-size="11">Q1 decision flow</text>
+  <rect class="panel" x="32.5" y="146.5" width="150" height="30" rx="8"/>
+  <text class="m fg" x="46" y="166" font-size="11">Q2 state, inputs</text>
+  <rect class="panel" x="32.5" y="184.5" width="150" height="30" rx="8"/>
+  <text class="m fg" x="46" y="204" font-size="11">Q3 failure paths</text>
+  <rect class="panel" x="32.5" y="222.5" width="150" height="30" rx="8"/>
+  <text class="m fg" x="46" y="242" font-size="11">Q4 tests</text>
+
+  <path class="wire" d="M182 180 L236 136"/>
+  <path class="wire" d="M182 180 L236 224"/>
+  <circle class="up" cx="182" cy="180" r="2.6" fill="#4C8DFF"/>
+  <circle class="up" cx="182" cy="180" r="2.6" fill="#4C8DFF" style="animation-delay:1.1s"/>
+  <circle class="down" cx="182" cy="180" r="2.6" fill="#FBBF24" style="animation-delay:.55s"/>
+  <circle class="down" cx="182" cy="180" r="2.6" fill="#FBBF24" style="animation-delay:1.65s"/>
+
+  <rect class="panel" x="236.5" y="112.5" width="190" height="48" rx="10"/>
+  <circle cx="256" cy="136" r="4" fill="#4C8DFF"/>
+  <text class="s fg" x="270" y="133" font-size="11.5">dense vectors</text>
+  <text class="s mut" x="270" y="148" font-size="10">local embeddings, ONNX Runtime</text>
+
+  <rect class="panel" x="236.5" y="200.5" width="190" height="48" rx="10"/>
+  <circle cx="256" cy="224" r="4" fill="#FBBF24"/>
+  <text class="s fg" x="270" y="221" font-size="11.5">BM25 postings</text>
+  <text class="s mut" x="270" y="236" font-size="10">exact identifiers and symbols</text>
+
+  <path class="wire" d="M426 136 L480 180"/>
+  <path class="wire" d="M426 224 L480 180"/>
+  <circle class="down" cx="426" cy="136" r="2.6" fill="#4C8DFF" style="animation-delay:.3s"/>
+  <circle class="up" cx="426" cy="224" r="2.6" fill="#FBBF24" style="animation-delay:.85s"/>
+
+  <rect class="panel" x="480.5" y="112.5" width="190" height="136" rx="10"/>
+  <rect class="sweep" x="481" y="113" width="189" height="3" rx="1.5" fill="#4C8DFF"/>
+  <text class="s lbl" x="496" y="136">FUSE AND SELECT</text>
+  <text class="s fg" x="496" y="162" font-size="11.5">Reciprocal Rank Fusion</text>
+  <text class="s fg" x="496" y="188" font-size="11.5">facet coverage reserved</text>
+  <text class="s fg" x="496" y="214" font-size="11.5">redundancy dropped (MMR)</text>
+  <text class="s mut" x="496" y="236" font-size="10">every facet keeps a seat at the table</text>
+
+  <path class="wire" d="M670 180 H718"/>
+  <path d="M718 180 l-6 -3.5 v7 z" fill="#313D5C"/>
+  <circle class="across" cx="672" cy="180" r="2.6" fill="#34D399"/>
+  <circle class="across" cx="672" cy="180" r="2.6" fill="#34D399" style="animation-delay:.8s"/>
+
+  <rect class="panel" x="718.5" y="112.5" width="209" height="136" rx="10"/>
+  <text class="s lbl" x="734" y="136">EXPAND AND CITE</text>
+  <text class="s fg" x="734" y="162" font-size="11.5">complete definitions</text>
+  <text class="s fg" x="734" y="184" font-size="11.5">+ one bounded reference hop</text>
+  <rect x="734" y="200" width="3" height="14" rx="1.5" fill="#34D399"/>
+  <text class="m fg" x="746" y="211" font-size="11">PATH:START-END</text>
+  <text class="s mut" x="734" y="236" font-size="10">stable line numbers, ready to quote</text>
+</svg>
