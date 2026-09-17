@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 264" width="960" height="264" role="img" aria-label="On re-index, unchanged files are skipped by SHA-256 while only changed files are re-parsed, re-chunked and re-embedded, with existing chunk vectors reused where content is unchanged">
+  <title>Incremental re-indexing: only the delta is reprocessed</title>
+  <style>
+    .s{font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+    .fg{fill:#E6EAF2}
+    .mut{fill:#9AA4BA}
+    .cached{fill:#182142;stroke:#2A3557;stroke-width:1}
+    @keyframes rerun{0%,100%{opacity:.55}50%{opacity:1}}
+    @keyframes tick{from{opacity:0}to{opacity:1}}
+    .delta{animation:rerun 1.8s ease-in-out infinite}
+    .tick{animation:tick .9s ease-out .5s both}
+    @media (prefers-reduced-motion:reduce){.delta,.tick{animation:none}}
+  </style>
+
+  <rect x="0.5" y="0.5" width="959" height="263" rx="16" fill="#0B1020" stroke="#26304A"/>
+
+  <text class="s fg" x="32" y="42" font-size="15">Incremental re-indexing &#8212; only the &#916; is reprocessed</text>
+  <text class="s mut" x="32" y="64" font-size="12">Unchanged files are skipped by SHA-256; changed files are re-parsed and stale chunks retired.</text>
+
+  <g>
+    <rect class="cached" x="32" y="88" width="40" height="18" rx="3"/>
+    <rect class="cached" x="80" y="88" width="40" height="18" rx="3"/>
+    <rect class="cached" x="128" y="88" width="40" height="18" rx="3"/>
+    <rect class="cached" x="176" y="88" width="40" height="18" rx="3"/>
+    <rect class="cached" x="224" y="88" width="40" height="18" rx="3"/>
+    <rect class="cached" x="272" y="88" width="40" height="18" rx="3"/>
+    <rect class="cached" x="320" y="88" width="40" height="18" rx="3"/>
+    <rect class="cached" x="368" y="88" width="40" height="18" rx="3"/>
+    <rect class="cached" x="416" y="88" width="40" height="18" rx="3"/>
+    <rect class="cached" x="464" y="88" width="40" height="18" rx="3"/>
+    <rect class="cached" x="512" y="88" width="40" height="18" rx="3"/>
+    <rect class="cached" x="560" y="88" width="40" height="18" rx="3"/>
+    <rect class="cached" x="608" y="88" width="40" height="18" rx="3"/>
+    <rect class="cached" x="656" y="88" width="40" height="18" rx="3"/>
+    <rect class="cached" x="704" y="88" width="40" height="18" rx="3"/>
+    <rect class="cached" x="752" y="88" width="40" height="18" rx="3"/>
+    <rect class="cached" x="800" y="88" width="40" height="18" rx="3"/>
+    <rect class="cached" x="848" y="88" width="40" height="18" rx="3"/>
+
+    <rect class="cached" x="32" y="114" width="40" height="18" rx="3"/>
+    <rect class="cached" x="80" y="114" width="40" height="18" rx="3"/>
+    <rect class="delta" x="128" y="114" width="40" height="18" rx="3" fill="#3A1A28" stroke="#FB7185"/>
+    <rect class="cached" x="176" y="114" width="40" height="18" rx="3"/>
+    <rect class="cached" x="224" y="114" width="40" height="18" rx="3"/>
+    <rect class="cached" x="272" y="114" width="40" height="18" rx="3"/>
+    <rect class="cached" x="320" y="114" width="40" height="18" rx="3"/>
+    <rect class="cached" x="368" y="114" width="40" height="18" rx="3"/>
+    <rect class="cached" x="416" y="114" width="40" height="18" rx="3"/>
+    <rect class="cached" x="464" y="114" width="40" height="18" rx="3"/>
+    <rect class="cached" x="512" y="114" width="40" height="18" rx="3"/>
+    <rect class="cached" x="560" y="114" width="40" height="18" rx="3"/>
+    <rect class="cached" x="608" y="114" width="40" height="18" rx="3"/>
+    <rect class="cached" x="656" y="114" width="40" height="18" rx="3"/>
+    <rect class="cached" x="704" y="114" width="40" height="18" rx="3"/>
+    <rect class="cached" x="752" y="114" width="40" height="18" rx="3"/>
+    <rect class="cached" x="800" y="114" width="40" height="18" rx="3"/>
+    <rect class="cached" x="848" y="114" width="40" height="18" rx="3"/>
+
+    <rect class="cached" x="32" y="140" width="40" height="18" rx="3"/>
+    <rect class="cached" x="80" y="140" width="40" height="18" rx="3"/>
+    <rect class="cached" x="128" y="140" width="40" height="18" rx="3"/>
+    <rect class="cached" x="176" y="140" width="40" height="18" rx="3"/>
+    <rect class="cached" x="224" y="140" width="40" height="18" rx="3"/>
+    <rect class="cached" x="272" y="140" width="40" height="18" rx="3"/>
+    <rect class="delta" x="320" y="140" width="40" height="18" rx="3" fill="#3A1A28" stroke="#FB7185" style="animation-delay:.45s"/>
+    <rect class="cached" x="368" y="140" width="40" height="18" rx="3"/>
+    <rect class="cached" x="416" y="140" width="40" height="18" rx="3"/>
+    <rect class="cached" x="464" y="140" width="40" height="18" rx="3"/>
+    <rect class="cached" x="512" y="140" width="40" height="18" rx="3"/>
+    <rect class="cached" x="560" y="140" width="40" height="18" rx="3"/>
+    <rect class="cached" x="608" y="140" width="40" height="18" rx="3"/>
+    <rect class="cached" x="656" y="140" width="40" height="18" rx="3"/>
+    <rect class="cached" x="704" y="140" width="40" height="18" rx="3"/>
+    <rect class="cached" x="752" y="140" width="40" height="18" rx="3"/>
+    <rect class="cached" x="800" y="140" width="40" height="18" rx="3"/>
+    <rect class="cached" x="848" y="140" width="40" height="18" rx="3"/>
+
+    <rect class="cached" x="32" y="166" width="40" height="18" rx="3"/>
+    <rect class="cached" x="80" y="166" width="40" height="18" rx="3"/>
+    <rect class="cached" x="128" y="166" width="40" height="18" rx="3"/>
+    <rect class="cached" x="176" y="166" width="40" height="18" rx="3"/>
+    <rect class="cached" x="224" y="166" width="40" height="18" rx="3"/>
+    <rect class="cached" x="272" y="166" width="40" height="18" rx="3"/>
+    <rect class="cached" x="320" y="166" width="40" height="18" rx="3"/>
+    <rect class="cached" x="368" y="166" width="40" height="18" rx="3"/>
+    <rect class="cached" x="416" y="166" width="40" height="18" rx="3"/>
+    <rect class="cached" x="464" y="166" width="40" height="18" rx="3"/>
+    <rect class="delta" x="512" y="166" width="40" height="18" rx="3" fill="#3A1A28" stroke="#FB7185" style="animation-delay:.9s"/>
+    <rect class="cached" x="560" y="166" width="40" height="18" rx="3"/>
+    <rect class="cached" x="608" y="166" width="40" height="18" rx="3"/>
+    <rect class="cached" x="656" y="166" width="40" height="18" rx="3"/>
+    <rect class="cached" x="704" y="166" width="40" height="18" rx="3"/>
+    <rect class="cached" x="752" y="166" width="40" height="18" rx="3"/>
+    <rect class="cached" x="800" y="166" width="40" height="18" rx="3"/>
+    <rect class="cached" x="848" y="166" width="40" height="18" rx="3"/>
+  </g>
+
+  <rect x="32" y="206" width="12" height="12" rx="3" class="cached"/>
+  <text class="s mut" x="52" y="216" font-size="11">unchanged &#8212; skipped by file hash, vectors reused</text>
+  <rect x="360" y="206" width="12" height="12" rx="3" fill="#3A1A28" stroke="#FB7185"/>
+  <text class="s mut" x="380" y="216" font-size="11">changed &#8212; re-parsed, re-chunked, re-embedded</text>
+  <g class="tick">
+    <text class="m fg" x="688" y="216" font-size="11">smritikosh index . --watch</text>
+    <text class="s mut" x="688" y="234" font-size="10">keeps the index synchronized as files change</text>
+  </g>
+</svg>
