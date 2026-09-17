@@ -122,9 +122,157 @@ def _echo_search_prose(
         )
 
 
+def _tools_payload() -> dict[str, object]:
+    """Describe the exploration workflow in compact, machine-readable rows."""
+    return {
+        "workflow": [
+            {
+                "step": 1,
+                "action": "search",
+                "instruction": "Pass 4-8 focused facets of one question.",
+            },
+            {
+                "step": 2,
+                "action": "chunks",
+                "instruction": "Read selected search_result paths and line ranges.",
+            },
+            {
+                "step": 3,
+                "action": "answer",
+                "instruction": "Cite the returned PATH:START-END evidence.",
+            },
+        ],
+        "tools": [
+            {
+                "name": "search",
+                "purpose": "Find relevant definitions and direct references.",
+                "usage": (
+                    "smritikosh explore search QUERY... "
+                    "--max-results 12 [--db-path PATH]"
+                ),
+                "returns": "TOON rows: path,start_line,end_line,symbol,facets",
+            },
+            {
+                "name": "chunks",
+                "purpose": "Read several exact source ranges in one process.",
+                "usage": (
+                    "smritikosh explore chunks "
+                    "--range PATH START END [--range PATH START END ...] "
+                    "[--db-path PATH]"
+                ),
+                "returns": "Numbered source lines grouped by PATH:START-END",
+            },
+            {
+                "name": "chunks",
+                "purpose": "List indexed definitions in one file.",
+                "usage": ("smritikosh explore chunks PATH [--db-path PATH]"),
+                "returns": "TOON outline rows with symbols and line ranges",
+            },
+        ],
+        "search_standards": [
+            {
+                "parameter": "QUERY count",
+                "start_with": "4",
+                "guidance": "Use one distinct facet per query; never repeat synonyms.",
+            },
+            {
+                "parameter": "QUERY facets",
+                "start_with": "flow|state|failure|tests",
+                "guidance": (
+                    "Include exact domain nouns, events, or symbols when known."
+                ),
+            },
+            {
+                "parameter": "--max-results",
+                "start_with": "12",
+                "guidance": (
+                    "Raise to 18, then 24 only when evidence categories are missing."
+                ),
+            },
+            {
+                "parameter": "--db-path",
+                "start_with": "the provided index path",
+                "guidance": "Set it explicitly when more than one index may exist.",
+            },
+        ],
+        "agent_guidance": [
+            "Follow search -> chunks -> answer.",
+            "Treat search results as candidates; verify material claims with chunks.",
+            "Batch independent reads with repeated --range and avoid overlaps.",
+            "Read relevant implementation and test bodies.",
+            (
+                "Target at most 12 Smritikosh CLI calls after tools; exceed only "
+                "to close material evidence gaps."
+            ),
+            (
+                "Trace relevant ownership, flow, conditions, and failure paths; "
+                "separate verified findings, assumptions, and unknowns."
+            ),
+            (
+                "Cite every material claim with a chunks-returned "
+                "portfolio-relative PATH:START-END."
+            ),
+            (
+                "Answer concisely with findings, flow, failure conditions, tests, "
+                "and unverified items."
+            ),
+        ],
+        "rules": [
+            {
+                "rule": (
+                    "Use --range PATH START END; do not also pass positional PATH, "
+                    "--start-line, --end-line, or --full."
+                )
+            },
+            {"rule": "Search returns locations only; use chunks to read source."},
+            {"rule": "TOON is the default; --toon is accepted for compatibility."},
+        ],
+    }
+
+
+def _echo_tools_prose() -> None:
+    """Print the exploration workflow for a human reader."""
+    click.echo("1. Search with 4-8 focused facets of one question:")
+    click.echo(
+        "   smritikosh explore search QUERY... --max-results 12 [--db-path PATH]"
+    )
+    click.echo("2. Read selected ranges (repeat --range to batch reads):")
+    click.echo(
+        "   smritikosh explore chunks --range PATH START END "
+        "[--range PATH START END ...] [--db-path PATH]"
+    )
+    click.echo("3. Cite the returned PATH:START-END evidence.")
+    click.echo()
+    click.echo("Agent guidance:")
+    for instruction in _tools_payload()["agent_guidance"]:
+        click.echo(f"- {instruction}")
+    click.echo()
+    click.echo("Do not combine --range with positional PATH, line options, or --full.")
+    click.echo("TOON is the default output format.")
+
+
 @click.group()
 def explore() -> None:
     """Explore an existing index through read-only agent-friendly commands."""
+
+
+@explore.command("tools")
+@click.option(
+    "--prose",
+    is_flag=True,
+    help="Print prose for a human instead of the default TOON rows.",
+)
+@click.option(
+    "--toon",
+    is_flag=True,
+    hidden=True,
+)
+def list_tools(prose: bool, toon: bool) -> None:  # noqa: ARG001
+    """List commands, exact syntax, workflow, and composition rules."""
+    if prose:
+        _echo_tools_prose()
+        return
+    _echo_toon(_tools_payload())
 
 
 @explore.command("search")

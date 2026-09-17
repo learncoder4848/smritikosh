@@ -17,7 +17,7 @@ from smritikosh.exploration import (
 from smritikosh.exploration_cli import explore
 from smritikosh.models import SearchLocation, SearchResult
 
-LEGACY_COMMANDS = ("evidence", "text", "paths", "info", "batch", "tools", "discover")
+LEGACY_COMMANDS = ("evidence", "text", "paths", "info", "batch", "discover")
 
 
 def _mock_explorer() -> MagicMock:
@@ -35,7 +35,7 @@ def _run_search(db_path: Path, *extra: str) -> str:
     return result.output
 
 
-def test_should_expose_only_search_and_chunks() -> None:
+def test_should_expose_tools_search_and_chunks() -> None:
     # Arrange
     runner = CliRunner()
 
@@ -44,9 +44,103 @@ def test_should_expose_only_search_and_chunks() -> None:
 
     # Assert
     assert result.exit_code == 0
-    assert sorted(explore.commands) == ["chunks", "search"]
+    assert sorted(explore.commands) == ["chunks", "search", "tools"]
+    assert "tools" in result.output
     assert "search" in result.output
     assert "chunks" in result.output
+
+
+def test_should_list_agent_facing_tool_usage_as_toon() -> None:
+    # Arrange
+    runner = CliRunner()
+
+    # Act
+    result = runner.invoke(main, ["explore", "tools", "--toon"])
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    payload = toons.loads(result.output)
+    assert [step["action"] for step in payload["workflow"]] == [
+        "search",
+        "chunks",
+        "answer",
+    ]
+    assert [tool["name"] for tool in payload["tools"]] == [
+        "search",
+        "chunks",
+        "chunks",
+    ]
+    assert (
+        payload["tools"][0]["usage"] == "smritikosh explore search QUERY... "
+        "--max-results 12 [--db-path PATH]"
+    )
+    assert (
+        payload["tools"][1]["usage"]
+        == "smritikosh explore chunks --range PATH START END "
+        "[--range PATH START END ...] [--db-path PATH]"
+    )
+    assert payload["search_standards"] == [
+        {
+            "parameter": "QUERY count",
+            "start_with": "4",
+            "guidance": "Use one distinct facet per query; never repeat synonyms.",
+        },
+        {
+            "parameter": "QUERY facets",
+            "start_with": "flow|state|failure|tests",
+            "guidance": "Include exact domain nouns, events, or symbols when known.",
+        },
+        {
+            "parameter": "--max-results",
+            "start_with": "12",
+            "guidance": (
+                "Raise to 18, then 24 only when evidence categories are missing."
+            ),
+        },
+        {
+            "parameter": "--db-path",
+            "start_with": "the provided index path",
+            "guidance": "Set it explicitly when more than one index may exist.",
+        },
+    ]
+    assert payload["agent_guidance"] == [
+        "Follow search -> chunks -> answer.",
+        "Treat search results as candidates; verify material claims with chunks.",
+        "Batch independent reads with repeated --range and avoid overlaps.",
+        "Read relevant implementation and test bodies.",
+        (
+            "Target at most 12 Smritikosh CLI calls after tools; exceed only "
+            "to close material evidence gaps."
+        ),
+        (
+            "Trace relevant ownership, flow, conditions, and failure paths; "
+            "separate verified findings, assumptions, and unknowns."
+        ),
+        (
+            "Cite every material claim with a chunks-returned "
+            "portfolio-relative PATH:START-END."
+        ),
+        (
+            "Answer concisely with findings, flow, failure conditions, tests, "
+            "and unverified items."
+        ),
+    ]
+    assert "do not also pass positional PATH" in payload["rules"][0]["rule"]
+
+
+def test_should_include_agent_guidance_in_tools_prose() -> None:
+    # Arrange
+    runner = CliRunner()
+
+    # Act
+    result = runner.invoke(main, ["explore", "tools", "--prose"])
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert "Agent guidance:" in result.output
+    assert "Treat search results as candidates" in result.output
+    assert "Read relevant implementation and test bodies." in result.output
+    assert "portfolio-relative PATH:START-END" in result.output
 
 
 def test_should_reject_every_removed_exploration_command(tmp_path: Path) -> None:
