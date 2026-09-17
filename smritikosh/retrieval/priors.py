@@ -6,7 +6,7 @@ import re
 from dataclasses import replace
 from typing import Final
 
-from smritikosh.models.retrieval import EvidenceCandidate, EvidenceOptions
+from smritikosh.models.retrieval import HybridSearchOptions, RankedCandidate
 from smritikosh.ports.retrieval import SourceReader
 
 __all__ = ["apply_metadata_priors", "infer_topic"]
@@ -46,12 +46,12 @@ def _has_intent(facets: set[str], terms: frozenset[str]) -> bool:
 
 
 def apply_metadata_priors(
-    candidates: list[EvidenceCandidate],
+    candidates: list[RankedCandidate],
     facets: tuple[str, ...],
     reader: SourceReader,
     *,
-    options: EvidenceOptions,
-) -> list[EvidenceCandidate]:
+    options: HybridSearchOptions,
+) -> list[RankedCandidate]:
     """Apply modest source-category and topic-path adjustments after RRF."""
     _, topic_paths = infer_topic(reader, facets[0])
     for candidate in candidates:

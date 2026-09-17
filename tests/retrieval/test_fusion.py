@@ -1,14 +1,14 @@
-"""Tests for rank fusion and diverse evidence selection."""
+"""Tests for rank fusion and diverse candidate selection."""
 
 from __future__ import annotations
 
 from smritikosh.models import SearchResult
 from smritikosh.models.retrieval import (
-    EvidenceOptions,
+    HybridSearchOptions,
     RetrievalChannel,
 )
 from smritikosh.retrieval.fusion import fuse_ranked_results
-from smritikosh.retrieval.selection import select_evidence_seeds
+from smritikosh.retrieval.selection import select_seeds
 
 
 def _result(path: str, symbol: str, snippet: str = "") -> SearchResult:
@@ -50,10 +50,10 @@ def test_should_reserve_each_facet_before_filling_for_relevance() -> None:
         }
     )
 
-    selected = select_evidence_seeds(
+    selected = select_seeds(
         candidates,
         ("alpha", "beta"),
-        options=EvidenceOptions(max_seeds=2),
+        options=HybridSearchOptions(max_seeds=2),
     )
 
     assert {candidate.result.symbol for candidate in selected} == {

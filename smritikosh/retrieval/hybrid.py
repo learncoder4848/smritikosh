@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from smritikosh.models import SearchResult
 from smritikosh.models.retrieval import (
-    EvidenceCandidate,
-    EvidenceOptions,
+    HybridSearchOptions,
+    RankedCandidate,
     RetrievalChannel,
     SearchOptions,
 )
@@ -25,9 +25,9 @@ class HybridRetriever:
         self,
         facets: tuple[str, ...],
         *,
-        options: EvidenceOptions,
+        options: HybridSearchOptions,
         queries: dict[str, str] | None = None,
-    ) -> list[EvidenceCandidate]:
+    ) -> list[RankedCandidate]:
         """Retrieve each facet independently and fuse channel ranks."""
         queries = queries or {facet: facet for facet in facets}
         ranked: dict[str, dict[RetrievalChannel, list[SearchResult]]] = {}

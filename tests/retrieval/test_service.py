@@ -1,16 +1,16 @@
-"""Tests for the hybrid evidence application service."""
+"""Tests for the hybrid search application service."""
 
 from __future__ import annotations
 
 from smritikosh.models import SearchResult
 from smritikosh.models.retrieval import (
-    EvidenceOptions,
+    HybridSearchOptions,
     IndexedChunk,
     OutlineEntry,
     RetrievalChannel,
     SourceLine,
 )
-from smritikosh.retrieval.service import EvidenceService
+from smritikosh.retrieval.service import HybridSearchService
 
 
 class _Retriever:
@@ -64,7 +64,7 @@ class _Reader:
         return [SourceLine(1, f"def load_{path.replace('/', '_')}():")]
 
 
-def test_should_return_observable_coverage_for_every_facet() -> None:
+def test_should_locate_code_for_every_requested_facet() -> None:
     flow = SearchResult(
         "src/flow.py",
         1,
@@ -83,7 +83,7 @@ def test_should_return_observable_coverage_for_every_facet() -> None:
         "function",
         "load",
     )
-    service = EvidenceService(
+    service = HybridSearchService(
         (
             _Retriever(RetrievalChannel.DENSE, {"flow": [flow], "retry": [retry]}),
             _Retriever(RetrievalChannel.LEXICAL, {"flow": [flow], "retry": [retry]}),
@@ -91,14 +91,37 @@ def test_should_return_observable_coverage_for_every_facet() -> None:
         _Reader(),
     )
 
-    pack = service.retrieve(
+    locations = service.search(
         ("flow", "retry"),
-        options=EvidenceOptions(max_seeds=2, max_results=2),
+        options=HybridSearchOptions(max_seeds=2, max_results=2),
     )
 
-    assert pack.covered_facets == ("flow", "retry")
-    assert pack.missing_facets == ()
-    assert [item.result.path for item in pack.items] == [
+    assert [location.path for location in locations] == [
         "src/flow.py",
         "src/retry.py",
     ]
+    assert [location.facets for location in locations] == [("flow",), ("retry",)]
+
+
+def test_should_return_locations_without_reading_source() -> None:
+    reader = _Reader()
+    result = SearchResult(
+        "src/flow.py",
+        1,
+        2,
+        "def load(): pass",
+        0.9,
+        "function",
+        "load",
+    )
+    service = HybridSearchService(
+        (_Retriever(RetrievalChannel.DENSE, {"flow": [result]}),),
+        reader,
+    )
+
+    locations = service.search(("flow",), options=HybridSearchOptions(max_results=1))
+
+    assert [(location.start_line, location.end_line) for location in locations] == [
+        (1, 2)
+    ]
+    assert not hasattr(locations[0], "source")

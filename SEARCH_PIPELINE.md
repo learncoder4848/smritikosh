@@ -1,8 +1,12 @@
 # Smritikosh Hybrid Search Pipeline
 
-Smritikosh indexes source code once, then builds a compact evidence pack for an
-AI agent. The objective is to preserve grep-like coverage while reducing tool
-calls, repeated context, latency, and cost.
+Smritikosh indexes source code once, then answers a question with a compact
+table of the code locations worth reading. The objective is to preserve
+grep-like coverage while reducing tool calls, repeated context, latency, and
+cost.
+
+The CLI is two commands: `explore search` ranks locations, and
+`explore chunks --range` reads the ones the caller selects.
 
 ```mermaid
 flowchart TD
@@ -15,8 +19,9 @@ flowchart TD
     Search --> RRF[Combine ranks with RRF]
     RRF --> Select[Facet coverage and MMR]
     Select --> Expand[Expand definitions and references]
-    Expand --> Pack[Pack evidence within 45k]
-    Pack --> Agent[AI answer]
+    Expand --> Locations[Return ranked locations]
+    Locations --> Read["Read selected ranges with chunks"]
+    Read --> Agent[AI answer]
 ```
 
 ## Indexing
@@ -89,12 +94,12 @@ The selector first reserves the strongest candidate for every requested facet.
 Additional seeds use Maximal Marginal Relevance:
 
 ```text
-utility = 70% fused relevance - 30% similarity to selected evidence
+utility = 70% fused relevance - 30% similarity to selected candidates
 ```
 
-Similarity uses code-aware token overlap. This avoids filling the context with
-several near-identical methods from one file. Selection defaults to sixteen
-seeds and at most two seeds from the same file.
+Similarity uses code-aware token overlap. This avoids returning several
+near-identical methods from one file. Selection defaults to sixteen seeds and
+at most two seeds from the same file.
 
 ## Generic expansion
 
@@ -109,21 +114,33 @@ Smritikosh then performs one bounded lexical-reference hop:
 
 These are lexical references, not verified graph edges. A future graph
 retriever can implement the same candidate port without changing fusion,
-selection, packing, or the CLI.
+selection, or the CLI.
 
-## Evidence packing and limits
+## Result shape
 
-Selected evidence is rendered with exact source line numbers and packed under a
-45,000-character limit. Space is reserved for metadata. The response reports:
+`explore search` returns locations, never source. Two TOON tables carry the
+whole response: the queries with their ids, and one row per selected
+definition.
 
-- Covered facets.
-- Missing facets.
-- Whether evidence was truncated.
-- Exact follow-up paths and ranges.
+```text
+queries[3]{id,query}:
+  Q1,feature trigger and flow
+  Q2,failure and retry behavior
+  Q3,relevant tests
+search_results[3]{path,start_line,end_line,symbol,facets}:
+  src/report/worker.py,40,88,run_daily_report,Q1
+  src/report/retry.py,12,34,retry_with_backoff,Q2
+  tests/report/test_worker.py,18,52,test_retries_once,Q3
+```
 
-CLI options are clamped to tested maxima rather than failing or allowing an
-agent to inflate output. This prevents the retry loops and oversized context
-that dominated earlier evaluations.
+Facets are labelled by query id so no row repeats the query text it matched,
+and nothing else is emitted: no source, scores, chunk ids, coverage summary, or
+truncation flags. A caller that wants code copies a row's path and range into
+`explore chunks --range PATH START END`, which returns numbered source for
+exactly the spans it asked for.
+
+`--max-results` is clamped to a tested maximum rather than failing or letting an
+agent inflate output.
 
 ## Ports and adapters
 
@@ -136,8 +153,8 @@ that dominated earlier evaluations.
 - `smritikosh/retrieval/priors.py` applies configurable metadata priors.
 - `smritikosh/retrieval/selection.py` implements facet reservation and MMR.
 - `smritikosh/retrieval/expansion.py` performs generic bounded expansion.
-- `smritikosh/retrieval/packing.py` enforces the context budget.
-- `smritikosh/retrieval/service.py` coordinates the application flow.
+- `smritikosh/retrieval/service.py` coordinates the application flow and returns
+  `SearchLocation` values.
 - `smritikosh/exploration_cli.py` only parses commands, constructs adapters, and
   renders TOON output.
 
@@ -151,10 +168,15 @@ smritikosh index /path/to/repo \
   --db-path smritikosh.duckdb \
   --full
 
-smritikosh explore evidence \
+smritikosh explore search \
   "feature trigger and flow" \
   "failure and retry behavior" \
   "persistence and duplicate handling" \
   "relevant tests" \
+  --db-path smritikosh.duckdb
+
+smritikosh explore chunks \
+  --range src/report/worker.py 40 88 \
+  --range src/report/retry.py 12 34 \
   --db-path smritikosh.duckdb
 ```

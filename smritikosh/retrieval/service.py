@@ -1,24 +1,23 @@
-"""Application service for bounded hybrid evidence retrieval."""
+"""Application service for bounded hybrid code search."""
 
 from __future__ import annotations
 
 from smritikosh.models.retrieval import (
-    EvidenceCandidate,
-    EvidenceOptions,
-    EvidencePack,
+    HybridSearchOptions,
+    RankedCandidate,
+    SearchLocation,
 )
 from smritikosh.ports.retrieval import CandidateRetriever, SourceReader
-from smritikosh.retrieval.expansion import EvidenceExpander
+from smritikosh.retrieval.expansion import CandidateExpander
 from smritikosh.retrieval.hybrid import HybridRetriever
-from smritikosh.retrieval.packing import EvidencePacker
 from smritikosh.retrieval.priors import apply_metadata_priors, infer_topic
-from smritikosh.retrieval.selection import select_evidence_seeds
+from smritikosh.retrieval.selection import select_seeds
 
-__all__ = ["EvidenceService"]
+__all__ = ["HybridSearchService"]
 
 
-class EvidenceService:
-    """Retrieve high-recall evidence through independent retrieval ports."""
+class HybridSearchService:
+    """Locate high-recall definitions through independent retrieval ports."""
 
     def __init__(
         self,
@@ -28,17 +27,16 @@ class EvidenceService:
         self._retrievers = retrievers
         self._reader = reader
         self._hybrid = HybridRetriever(retrievers)
-        self._expander = EvidenceExpander(reader)
-        self._packer = EvidencePacker(reader)
+        self._expander = CandidateExpander(reader)
 
-    def retrieve(
+    def search(
         self,
         facets: tuple[str, ...],
         *,
-        options: EvidenceOptions | None = None,
-    ) -> EvidencePack:
-        """Retrieve, fuse, expand, and pack evidence for caller-supplied facets."""
-        options = options or EvidenceOptions()
+        options: HybridSearchOptions | None = None,
+    ) -> list[SearchLocation]:
+        """Retrieve, fuse, and expand locations for caller-supplied facets."""
+        options = options or HybridSearchOptions()
         normalized: tuple[str, ...] = tuple(
             facet.strip() for facet in facets if facet.strip()
         )
@@ -51,7 +49,7 @@ class EvidenceService:
             )
             for facet in normalized
         }
-        candidates: list[EvidenceCandidate] = self._hybrid.retrieve(
+        candidates: list[RankedCandidate] = self._hybrid.retrieve(
             normalized,
             options=options,
             queries=queries,
@@ -62,13 +60,26 @@ class EvidenceService:
             self._reader,
             options=options,
         )
-        seeds: list[EvidenceCandidate] = select_evidence_seeds(
+        seeds: list[RankedCandidate] = select_seeds(
             candidates,
             normalized,
             options=options,
         )
-        expanded: list[EvidenceCandidate] = self._expander.expand(
+        expanded: list[RankedCandidate] = self._expander.expand(
             seeds,
             options=options,
         )
-        return self._packer.pack(expanded, normalized, options=options)
+        return [
+            SearchLocation(
+                path=candidate.result.path,
+                start_line=candidate.result.start_line,
+                end_line=candidate.result.end_line,
+                symbol=candidate.result.symbol,
+                # Facet order follows the caller's arguments so a renderer can
+                # label facets positionally without re-deriving their order.
+                facets=tuple(
+                    facet for facet in normalized if facet in candidate.facets
+                ),
+            )
+            for candidate in expanded
+        ]
