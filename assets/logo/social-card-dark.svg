@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-label="Smritikosh — your agents deserve exact evidence">
+  <defs>
+    <style>.sans{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+      .mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}</style>
+    <linearGradient id="wash" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0B1020"/><stop offset="1" stop-color="#0B1020"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#4C8DFF" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#4C8DFF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="lift" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="20" flood-color="#0B1020" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <rect width="1280" height="640" fill="url(#wash)"/>
+  <circle cx="300" cy="110" r="520" fill="url(#glow)"/>
+  <rect x="0.5" y="0.5" width="1279" height="639" fill="none" stroke="#1E2740"/>
+  <g transform="translate(80,78) scale(1.25)">
+    <g transform="translate(-2.328,-7.241) scale(0.51724)"><path d="M 13.0 74.0 C 25.0 12.0 71.0 12.0 83.0 74.0" fill="none" stroke="#E6EAF2" stroke-width="7.0" stroke-linecap="round"/><circle cx="13.00" cy="74.00" r="8.5" fill="#E6EAF2"/><circle cx="26.58" cy="40.07" r="8.5" fill="#E6EAF2"/><circle cx="69.42" cy="40.07" r="8.5" fill="#E6EAF2"/><circle cx="83.00" cy="74.00" r="8.5" fill="#E6EAF2"/><circle cx="48.00" cy="27.50" r="13.5" fill="#4C8DFF"/></g>
+    <text class="sans" x="68.8" y="29.215" font-size="30" font-weight="700" letter-spacing="-0.015em" fill="#E6EAF2">smritikosh</text>
+  </g>
+
+  <text class="sans" x="80" y="286" font-size="56" font-weight="600" letter-spacing="-1.7" fill="#E6EAF2">Your agents deserve</text>
+  <text class="sans" x="80" y="350" font-size="56" font-weight="600" letter-spacing="-1.7" fill="#4C8DFF">exact evidence.</text>
+
+  <text class="sans" x="80" y="418" font-size="24" fill="#9AA4BA">Local-first indexing and retrieval for code, docs,</text>
+  <text class="sans" x="80" y="452" font-size="24" fill="#9AA4BA">and conversations — no API keys, no cloud.</text>
+
+  <g><rect x="80" y="524" width="112.4" height="42" rx="21" fill="#16203A" stroke="#25406E"/>
+      <text class="mono" x="136.2" y="551" font-size="16" font-weight="500" letter-spacing="1.9" text-anchor="middle" fill="#4C8DFF">PRECISE</text></g>
+  <g><rect x="206.39999999999998" y="524" width="157.2" height="42" rx="21" fill="#16203A" stroke="#25406E"/>
+      <text class="mono" x="285.0" y="551" font-size="16" font-weight="500" letter-spacing="1.9" text-anchor="middle" fill="#4C8DFF">INCREMENTAL</text></g>
+  <g><rect x="377.59999999999997" y="524" width="90.0" height="42" rx="21" fill="#16203A" stroke="#25406E"/>
+      <text class="mono" x="422.6" y="551" font-size="16" font-weight="500" letter-spacing="1.9" text-anchor="middle" fill="#4C8DFF">LOCAL</text></g>
+
+  <g filter="url(#lift)"><rect x="736" y="124" width="464" height="392" rx="18" fill="#111A2E" stroke="#1E2740"/></g>
+  <text class="mono" x="766" y="170" font-size="15" font-weight="500" letter-spacing="2.1" fill="#77839C">SMRITIKOSH EXPLORE SEARCH</text>
+  <text class="mono" x="766" y="212" font-size="19" fill="#E6EAF2"><tspan fill="#77839C">"</tspan>authorization decision flow<tspan fill="#77839C">"</tspan></text>
+  <line x1="766" y1="240" x2="1170" y2="240" stroke="#1E2740"/>
+  <g><circle cx="770" cy="290" r="4" fill="#4C8DFF"/>
+    <text class="mono" x="788" y="296" font-size="19" fill="#E6EAF2">src/auth/policy.py</text>
+    <text class="mono" x="1170" y="296" font-size="19" font-weight="600" text-anchor="end" fill="#4C8DFF">176–193</text></g>
+  <g><circle cx="770" cy="344" r="4" fill="#4C8DFF"/>
+    <text class="mono" x="788" y="350" font-size="19" fill="#E6EAF2">tests/test_policy.py</text>
+    <text class="mono" x="1170" y="350" font-size="19" font-weight="600" text-anchor="end" fill="#4C8DFF">44–61</text></g>
+  <g><circle cx="770" cy="398" r="4" fill="#4C8DFF"/>
+    <text class="mono" x="788" y="404" font-size="19" fill="#E6EAF2">docs/auth.md</text>
+    <text class="mono" x="1170" y="404" font-size="19" font-weight="600" text-anchor="end" fill="#4C8DFF">12–28</text></g>
+  <line x1="766" y1="438" x2="1170" y2="438" stroke="#1E2740"/>
+  <text class="mono" x="766" y="474" font-size="15" fill="#77839C">3 exact ranges · never the whole file</text>
+</svg>
