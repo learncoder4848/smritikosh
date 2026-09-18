@@ -19,7 +19,6 @@ poetry.lock
 *.duckdb.wal
 # Editor state: holds absolute paths from whichever machine opened the project.
 .vscode/
-.DS_Store
 # Logo scratch: discarded directions and rendered comparison sheets. The brand
 # set that actually ships sits beside them in assets/logo/.
 assets/logo/explorations/
