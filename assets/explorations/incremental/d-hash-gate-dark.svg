@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 264" width="960" height="264" role="img" aria-label="Where an incremental re-index spends its time, measured on this repository. Fifty-nine files are discovered and each one meets the same gate: does the SHA-256 of its contents still match the hash recorded last run? Fifty-eight of them match and leave immediately, never parsed, never chunked, never embedded, never written, costing zero milliseconds of model time and keeping the vectors and postings they already own. The one file that changed takes the full route through parse, extract, chunk, embed, and store, and the whole run finishes in 1.5 seconds, re-embedding 4 of 413 chunks while the other 409 keep the vectors they already had. A run where nothing changed takes 0.8 seconds; building the index from nothing took 38 seconds. Keywords: incremental indexing, SHA-256 change detection, delta processing, chunk memoization, embedding cost, pipeline, watch mode.">
+  <title>Every file meets the same gate; only the changed one pays for the pipeline</title>
+
+  <defs>
+    <marker id="hg-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#77839C"/>
+    </marker>
+    <marker id="hg-arrow-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#34D399"/>
+    </marker>
+    <marker id="hg-arrow-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#4C8DFF"/>
+    </marker>
+
+    <style>
+      .sans{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+      .mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+      .cap{font-size:10px;letter-spacing:.2em;font-weight:700}
+      .ink{fill:#E6EAF2}
+      .mut{fill:#9AA4BA}
+      .faint{fill:#77839C}
+
+      .changed { animation: hg-changed 2.2s ease-in-out infinite; }
+      @keyframes hg-changed { 0%,100% { opacity:1 } 50% { opacity:.34 } }
+
+      .flow { animation: hg-dash 2.4s linear infinite; }
+      @keyframes hg-dash { to { stroke-dashoffset:-22 } }
+
+      @media (prefers-reduced-motion: reduce) {
+        .changed,.flow { animation:none }
+      }
+    </style>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="263" rx="18" fill="#0B1020" stroke="#26304A"/>
+
+  <g class="mono cap">
+    <text x="32"  y="28" fill="#9AA4BA">EVERY FILE</text>
+    <text x="212" y="28" fill="#9AA4BA">ONE GATE</text>
+    <text x="384" y="28" fill="#9AA4BA">WHAT HAPPENS NEXT, AND WHAT IT COSTS</text>
+  </g>
+
+  <!-- ============ the corpus ============ -->
+  <rect x="32.5" y="42.5" width="150" height="160" rx="12" fill="#0D1424" stroke="#2B3653"/>
+  <text class="mono" x="52" y="64" font-size="9.5" fill="#C7D0E2">59 files</text>
+
+  <g fill="#25406E">
+    <rect x="52" y="76" width="16" height="7" rx="2"/><rect x="71" y="76" width="16" height="7" rx="2"/><rect x="90" y="76" width="16" height="7" rx="2"/><rect x="109" y="76" width="16" height="7" rx="2"/><rect x="128" y="76" width="16" height="7" rx="2"/><rect x="147" y="76" width="16" height="7" rx="2"/>
+    <rect x="52" y="87" width="16" height="7" rx="2"/><rect x="71" y="87" width="16" height="7" rx="2"/><rect x="90" y="87" width="16" height="7" rx="2"/><rect x="109" y="87" width="16" height="7" rx="2"/><rect x="128" y="87" width="16" height="7" rx="2"/><rect x="147" y="87" width="16" height="7" rx="2"/>
+    <rect x="52" y="98" width="16" height="7" rx="2"/><rect x="71" y="98" width="16" height="7" rx="2"/><rect x="90" y="98" width="16" height="7" rx="2"/><rect x="109" y="98" width="16" height="7" rx="2"/><rect x="128" y="98" width="16" height="7" rx="2"/><rect x="147" y="98" width="16" height="7" rx="2"/>
+    <rect x="52" y="109" width="16" height="7" rx="2"/><rect x="71" y="109" width="16" height="7" rx="2"/><rect class="changed" fill="#9F1239" x="90" y="109" width="16" height="7" rx="2"/><rect x="109" y="109" width="16" height="7" rx="2"/><rect x="128" y="109" width="16" height="7" rx="2"/><rect x="147" y="109" width="16" height="7" rx="2"/>
+    <rect x="52" y="120" width="16" height="7" rx="2"/><rect x="71" y="120" width="16" height="7" rx="2"/><rect x="90" y="120" width="16" height="7" rx="2"/><rect x="109" y="120" width="16" height="7" rx="2"/><rect x="128" y="120" width="16" height="7" rx="2"/><rect x="147" y="120" width="16" height="7" rx="2"/>
+    <rect x="52" y="131" width="16" height="7" rx="2"/><rect x="71" y="131" width="16" height="7" rx="2"/><rect x="90" y="131" width="16" height="7" rx="2"/><rect x="109" y="131" width="16" height="7" rx="2"/><rect x="128" y="131" width="16" height="7" rx="2"/><rect x="147" y="131" width="16" height="7" rx="2"/>
+    <rect x="52" y="142" width="16" height="7" rx="2"/><rect x="71" y="142" width="16" height="7" rx="2"/><rect x="90" y="142" width="16" height="7" rx="2"/><rect x="109" y="142" width="16" height="7" rx="2"/><rect x="128" y="142" width="16" height="7" rx="2"/><rect x="147" y="142" width="16" height="7" rx="2"/>
+    <rect x="52" y="153" width="16" height="7" rx="2"/><rect x="71" y="153" width="16" height="7" rx="2"/><rect x="90" y="153" width="16" height="7" rx="2"/><rect x="109" y="153" width="16" height="7" rx="2"/><rect x="128" y="153" width="16" height="7" rx="2"/><rect x="147" y="153" width="16" height="7" rx="2"/>
+    <rect x="52" y="164" width="16" height="7" rx="2"/><rect x="71" y="164" width="16" height="7" rx="2"/><rect x="90" y="164" width="16" height="7" rx="2"/><rect x="109" y="164" width="16" height="7" rx="2"/><rect x="128" y="164" width="16" height="7" rx="2"/><rect x="147" y="164" width="16" height="7" rx="2"/>
+    <rect x="52" y="175" width="16" height="7" rx="2"/><rect x="71" y="175" width="16" height="7" rx="2"/><rect x="90" y="175" width="16" height="7" rx="2"/><rect x="109" y="175" width="16" height="7" rx="2"/><rect x="128" y="175" width="16" height="7" rx="2"/>
+  </g>
+
+  <path d="M182 122 H 206" fill="none" stroke="#77839C" stroke-width="1.4"
+        stroke-linecap="round" marker-end="url(#hg-arrow)"/>
+
+  <!-- ============ the gate ============ -->
+  <rect x="212.5" y="97.5" width="132" height="51" rx="12" fill="#131A2E" stroke="#2B3653"/>
+  <text class="mono ink" x="278" y="119" font-size="9.5" text-anchor="middle">sha256(file)</text>
+  <text class="sans mut" x="278" y="135" font-size="9.5" text-anchor="middle">same as last run?</text>
+
+  <path class="flow" d="M345 112 C 365 112, 366 80, 378 80" fill="none" stroke="#34D399" stroke-width="1.5"
+        stroke-linecap="round" stroke-dasharray="4 7" marker-end="url(#hg-arrow-g)"/>
+  <path class="flow" d="M345 134 C 365 134, 366 177, 378 177" fill="none" stroke="#4C8DFF" stroke-width="1.5"
+        stroke-linecap="round" stroke-dasharray="4 7" style="animation-delay:.5s" marker-end="url(#hg-arrow-b)"/>
+
+  <text class="mono" x="350" y="90" font-size="8.5" fill="#34D399">yes</text>
+  <text class="mono" x="350" y="168" font-size="8.5" fill="#4C8DFF">no</text>
+
+  <!-- ============ the cheap path ============ -->
+  <rect x="384.5" y="42.5" width="543" height="76" rx="12" fill="#0F2B24" stroke="#1F4A3C"/>
+  <text class="sans ink" x="404" y="66" font-size="12.5" font-weight="600">58 files leave here</text>
+  <text class="mono" x="908" y="66" font-size="12" font-weight="700" fill="#34D399" text-anchor="end">0 ms of model time</text>
+  <text class="sans mut" x="404" y="88" font-size="10">Never parsed, never chunked, never embedded, never written.</text>
+  <text class="sans faint" x="404" y="104" font-size="9.5">They keep the vectors and postings they already own.</text>
+
+  <!-- ============ the delta ============ -->
+  <rect x="384.5" y="128.5" width="543" height="96" rx="12" fill="#0D1424" stroke="#2B3653"/>
+  <text class="sans ink" x="404" y="152" font-size="12.5" font-weight="600">1 file takes the full route</text>
+  <text class="mono" x="908" y="152" font-size="12" font-weight="700" fill="#4C8DFF" text-anchor="end">1.5 s</text>
+
+  <g>
+    <rect x="404.5" y="164.5" width="84" height="28" rx="8" fill="#131A2E" stroke="#2B3653"/>
+    <text class="sans ink" x="446" y="182" font-size="10" text-anchor="middle">parse</text>
+    <rect x="506.5" y="164.5" width="84" height="28" rx="8" fill="#131A2E" stroke="#2B3653"/>
+    <text class="sans ink" x="548" y="182" font-size="10" text-anchor="middle">extract</text>
+    <rect x="608.5" y="164.5" width="84" height="28" rx="8" fill="#131A2E" stroke="#2B3653"/>
+    <text class="sans ink" x="650" y="182" font-size="10" text-anchor="middle">chunk</text>
+    <rect x="710.5" y="164.5" width="84" height="28" rx="8" fill="#131A2E" stroke="#2B3653"/>
+    <text class="sans ink" x="752" y="182" font-size="10" text-anchor="middle">embed</text>
+    <rect x="812.5" y="164.5" width="84" height="28" rx="8" fill="#131A2E" stroke="#2B3653"/>
+    <text class="sans ink" x="854" y="182" font-size="10" text-anchor="middle">store</text>
+  </g>
+  <g fill="none" stroke="#3A4665" stroke-width="1.3" stroke-linecap="round" marker-end="url(#hg-arrow)">
+    <path d="M489 178.5 H 500"/>
+    <path d="M591 178.5 H 602"/>
+    <path d="M693 178.5 H 704"/>
+    <path d="M795 178.5 H 806"/>
+  </g>
+
+  <text class="sans faint" x="404" y="212" font-size="9.5">4 of 413 chunks re-embedded &#8212; the other 409 keep the vectors they already had.</text>
+
+  <text class="sans faint" x="32" y="248" font-size="9">Measured while indexing this repository &#8212; 59 files, 413 chunks, embeddings computed locally on an Apple M4 Max. Nothing changed at all: 0.8 s. From nothing: 38 s.</text>
+</svg>

@@ -10,7 +10,8 @@
 **Star us ❤️ →** [Smritikosh on GitHub](https://github.com/learncoder4848/smritikosh) ·
 [PyPI](https://pypi.org/project/smritikosh/) ·
 [Benchmarks](#benchmarks) ·
-[Issues](https://github.com/learncoder4848/smritikosh/issues)
+[Issues](https://github.com/learncoder4848/smritikosh/issues) ·
+[Contributing](CONTRIBUTING.md)
 
 Smritikosh is a local-first indexing and retrieval tool for code, documents, and conversations.
 It incrementally indexes changes and returns precise, line-cited passages for agents—without
@@ -85,20 +86,6 @@ re-reads what changed.
   <source media="(prefers-color-scheme: light)" srcset="assets/incremental-light.svg">
   <img src="assets/incremental-light.svg" alt="Why an index has to keep up. Before: in the file policy.py, the login check sits at lines 176 to 193. Then someone adds two new lines near the top of that file, and everything below them moves down, so the login check now sits at lines 178 to 195. An index that was not updated still answers lines 176 to 193: that answer is instant, it is two lines too high, and it quotes the wrong code. Smritikosh notices the file changed, reads that one file again in 3 seconds, and answers lines 178 to 195. Leave smritikosh index with the watch flag running and it keeps up on every save; re-reading all 59 files in the project instead would take 40 seconds. Keywords: stale index, line numbers moved, exact citations, incremental update, watch mode, always fresh." width="100%" draggable="false"></picture>
 
-Catching up takes three seconds; starting over takes forty.
-
-## What Smritikosh offers
-
-| | |
-| --- | --- |
-| **One index, many sources** | Point `index` at each repository and docs tree in turn; they share one database and are searched as a single corpus. A production-triage assistant can trace ownership, events, gates, and failure paths, and an answer can cite two services and a design doc at once. |
-| **Agent-ready exploration** | `explore tools` teaches the model how to search, verify, cite, and stop. `search` finds candidates, `chunks` reads only the selected ranges, so a code-aware agent can retrieve the exact implementation and its tests before answering. |
-| **Hybrid search** | Dense vectors for meaning, BM25 for identifiers, RRF for fusion, Facet Reservation for coverage, MMR for diversity — the retrieval a repository Q&A needs so every citation points back to the precise range used as evidence. |
-| **Definition-aligned evidence** | Tree-sitter queries keep classes, functions, and methods whole, so a range is always a complete thought. Architecture discovery tools map those definitions and their direct references without loading whole repositories into context. |
-| **Δ incremental re-indexing** | SHA-256 file skipping, chunk-level memoization keyed on content *and* on the code that produced it, stale-chunk retirement, optional `--watch`. |
-| **Local and read-only** | Source, metadata, vectors, BM25 postings, and incremental state live in one DuckDB file. Exploration never takes a write lock or touches the source tree — offline developer tooling, with no source sent to a hosted service. |
-| **Multi-language** | AST-aware indexing for Python, TypeScript, JavaScript, Java, and Kotlin; structure-aware strategies for Markdown, MDX, JSON, and TOML. |
-
 ## Benchmarks
 
 <picture>
@@ -119,15 +106,27 @@ cumulative token counts include repeated cache reads. The artifacts deliberately
 each answer fell short — the interest run was 12.6 seconds slower, and the triage baseline
 covered more repositories — so the efficiency numbers can be read honestly.
 
+## What Smritikosh offers
+
+| | |
+| --- | --- |
+| **One index, many sources** | Point `index` at each repository and docs tree in turn; they share one database and are searched as a single corpus. A production-triage assistant can trace ownership, events, gates, and failure paths, and an answer can cite two services and a design doc at once. |
+| **Agent-ready exploration** | `explore tools` teaches the model how to search, verify, cite, and stop. `search` finds candidates, `chunks` reads only the selected ranges, so a code-aware agent can retrieve the exact implementation and its tests before answering. |
+| **Hybrid search** | Dense vectors for meaning, BM25 for identifiers, RRF for fusion, Facet Reservation for coverage, MMR for diversity — the retrieval a repository Q&A needs so every citation points back to the precise range used as evidence. |
+| **Definition-aligned evidence** | Tree-sitter queries keep classes, functions, and methods whole, so a range is always a complete thought. Architecture discovery tools map those definitions and their direct references without loading whole repositories into context. |
+| **Δ incremental re-indexing** | SHA-256 file skipping, chunk-level memoization keyed on content *and* on the code that produced it, stale-chunk retirement, optional `--watch`. |
+| **Local and read-only** | Source, metadata, vectors, BM25 postings, and incremental state live in one DuckDB file. Exploration never takes a write lock or touches the source tree — offline developer tooling, with no source sent to a hosted service. |
+| **Multi-language** | AST-aware indexing for Python, TypeScript, JavaScript, Java, and Kotlin; structure-aware strategies for Markdown, MDX, JSON, and TOML. |
+
 ## How it works
 
-Indexing is a four-step walk. Search is the reverse: a question hits those indexes, then
-comes back as a handful of line ranges.
+Indexing is a four-step walk onto one DuckDB file. Search is the reverse: a question hits
+those indexes, then comes back as a handful of line ranges.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/how-it-works-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/how-it-works-light.svg">
-  <img src="assets/how-it-works-light.svg" alt="How Smritikosh works. It walks the tree, skipping gitignored files and routing each remaining file by language. It parses the file, extracts whole definitions, and chunks them so a function stays a function. Each chunk is stored three ways in one local DuckDB file: dense vectors for meaning, BM25 for exact names, and a call-graph channel that is not yet implemented. On later runs only files whose content hash changed re-enter the expensive stages. Search then returns exact PATH start-end ranges." width="100%" draggable="false"></picture>
+  <img src="assets/how-it-works-light.svg" alt="How Smritikosh works. It walks the tree, skipping gitignored files and routing each remaining file by language. It parses the file, extracts whole definitions, and chunks them so a function stays a function. Each chunk is stored three ways in one local DuckDB persistence layer: dense vectors for meaning, BM25 for exact names, and a call-graph channel that is not yet implemented. Chunks, metadata, vectors, BM25 postings, and incremental hash-and-memo state share that same DuckDB file. On later runs only files whose content hash changed re-enter the expensive stages. Search then returns exact PATH start-end ranges." width="100%" draggable="false"></picture>
 
 **1. Walk the tree.** Discovery respects `.gitignore`, then the language router sends each
 file to the right parser — Python, TypeScript, JavaScript, Java, Kotlin, Markdown, and a
@@ -141,6 +140,9 @@ names) inside one local DuckDB file. A call-graph channel — callers and callee
 
 **4. Re-read only Δ.** A content hash decides whether a file is touched at all. Unchanged
 chunks keep the vectors they already have. Add `--watch` and this happens as you save.
+
+**5. Persist locally.** Chunks, metadata, dense vectors, BM25 postings, and incremental
+state live in one `smritikosh.duckdb` — the same file search reads.
 
 Ask a question and [hybrid retrieval](#retrieval--evidence-you-can-point-at) fuses those
 rankings, keeps one hit per angle, drops near-duplicates, and expands survivors to complete
@@ -160,13 +162,6 @@ Indexes built before hybrid retrieval need one rebuild:
 ```bash
 smritikosh index /path/to/repo --db-path smritikosh.duckdb --full
 ```
-
-## We love contributors
-
-Every typo fix, new language query, retrieval tweak, and doc correction makes Smritikosh
-better — small PRs as welcome as large ones. Start with
-[CONTRIBUTING.md](CONTRIBUTING.md), or open an
-[issue](https://github.com/learncoder4848/smritikosh/issues) to talk it through first.
 
 Built by [Shantanu Vashishtha](https://github.com/learncoder4848) and
 [Sarvesh Sawant](https://github.com/devsarvesh92).
