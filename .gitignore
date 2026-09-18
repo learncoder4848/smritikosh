@@ -17,3 +17,9 @@ poetry.lock
 # .wal is DuckDB's write-ahead log, left behind if a write is interrupted.
 *.duckdb
 *.duckdb.wal
+# Editor state: holds absolute paths from whichever machine opened the project.
+.vscode/
+# Logo scratch: discarded directions and rendered comparison sheets. The brand
+# set that actually ships sits beside them in assets/logo/.
+assets/logo/explorations/
+assets/logo/previews/
