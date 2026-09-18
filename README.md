@@ -1,21 +1,25 @@
 <div align="center">
 
-<img src="assets/hero.svg" alt="Smritikosh parses a repository into definition-aligned chunks, indexes them with dense vectors and BM25 postings, and returns exact source ranges to a coding agent" width="100%">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/hero-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/hero-light.svg">
+  <img src="assets/hero-light.svg" alt="One repository, many repositories, documents and Slack feed into Smritikosh, a single local index that splits every source into complete, findable pieces and searches them both by meaning and by exact words. It hands a coding agent a handful of exact ranges &mdash; from either repository, from a document, or from a Slack thread &mdash; instead of the whole corpus, and re-reads only what changed. Keywords: semantic code search, hybrid retrieval, BM25, reciprocal rank fusion, maximal marginal relevance, tree-sitter, incremental indexing, local-first RAG, agent context, exact citations." width="100%" draggable="false"></picture>
 
 # Your agents deserve _exact evidence._
 
 **Star us ❤️ →** [Smritikosh on GitHub](https://github.com/learncoder4848/smritikosh) ·
 [PyPI](https://pypi.org/project/smritikosh/) ·
-[Search pipeline](SEARCH_PIPELINE.md) ·
 [Benchmarks](#benchmarks) ·
 [Issues](https://github.com/learncoder4848/smritikosh/issues)
 
-Smritikosh turns a repository into a local code-intelligence index and hands your agent the
-handful of source ranges that answer a question — instead of a tour of the file tree. Index
-once, explore read-only, cite `PATH:START-END`. No API key, no hosted vector database, no
-source leaving your machine.
+Smritikosh turns one codebase — or fifty, plus the documents and threads around them — into a
+single local index your coding agent can search, and hands back the handful of exact passages
+that answer a question, cited down to the line. No tour of the file tree, no whole-file dumps,
+no stale context. Index once in minutes, keep it fresh for the price of the diff, and cite
+`PATH:START-END` every time — no API key, no hosted vector database, no source leaving your
+machine.
 
-**Local-first** · CPU embeddings · **Δ incremental** · only changed files · **Agent-native** · one CLI, three commands
+**Exact** · cited to the line &nbsp;·&nbsp; **Incremental** · only the Δ &nbsp;·&nbsp; **Local** · no key, no cloud
 
 [![CI](https://github.com/learncoder4848/smritikosh/actions/workflows/ci.yml/badge.svg)](https://github.com/learncoder4848/smritikosh/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/smritikosh?color=4C8DFF)](https://pypi.org/project/smritikosh/)
@@ -35,8 +39,10 @@ pip install smritikosh
 Index a repository once. Every later run touches only what changed.
 
 ```bash
-# 1. Build the local index.
+# 1. Build the local index. Run it once per repository or docs tree —
+#    everything pointed at the same --db-path is searched together.
 smritikosh index /path/to/repository --db-path smritikosh.duckdb
+smritikosh index /path/to/another-service --db-path smritikosh.duckdb
 
 # 2. Let the agent discover the workflow, syntax, and answer contract.
 smritikosh explore tools --toon
@@ -73,7 +79,10 @@ only network access is a one-time model download.
 
 ## Retrieval — _built for agents, not for humans scrolling_
 
-<img src="assets/hybrid-retrieval.svg" alt="Each facet is retrieved from dense vectors and BM25 postings, fused with Reciprocal Rank Fusion, reserved for facet coverage, de-duplicated with Maximal Marginal Relevance, then expanded to complete definitions plus one bounded reference hop" width="100%">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/hybrid-retrieval-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/hybrid-retrieval-light.svg">
+  <img src="assets/hybrid-retrieval-light.svg" alt="One question is asked four ways at once. Each angle is searched twice, once by meaning using local embeddings and once by exact words using a BM25 index. The two rankings are merged with Reciprocal Rank Fusion, every angle is reserved a seat, near-duplicates are dropped with Maximal Marginal Relevance, and what comes back is complete definitions plus one bounded reference hop, cited as exact line ranges." width="100%" draggable="false"></picture>
 
 Ask one question as four facets — primary flow, state or data, failure handling, tests. Each
 facet is retrieved independently from local embeddings **and** an incremental Okapi BM25 index,
@@ -102,7 +111,10 @@ human-readable output.
 
 ## Why _incremental?_
 
-<img src="assets/incremental.svg" alt="On re-index, unchanged files are skipped by SHA-256 while changed files are re-parsed, re-chunked and re-embedded, with existing chunk vectors reused where content is unchanged" width="100%">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/incremental-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/incremental-light.svg">
+  <img src="assets/incremental-light.svg" alt="A grid of 72 files after a re-index. Three of them changed and are read and re-embedded; the other 69 are recognised as unchanged by SHA-256 and skipped instantly, with their existing chunk vectors reused." width="100%" draggable="false"></picture>
 
 An index that goes stale is a liability: the agent cites line numbers that moved. Smritikosh
 compares file hashes, re-parses only what changed, retires stale chunks, and reuses existing
@@ -113,6 +125,7 @@ it stays synchronized while you work.
 
 | | |
 | --- | --- |
+| **One index, many sources** | Point `index` at each repository and docs tree in turn; they share one database and are searched as a single corpus, so an answer can cite two services and a design doc at once. |
 | **Agent-ready exploration** | `explore tools` teaches the model how to search, verify, cite, and stop. `search` finds candidates, `chunks` reads only the selected ranges. |
 | **Hybrid search** | Dense vectors for meaning, BM25 for identifiers, RRF for fusion, facet reservation for coverage, MMR for diversity. |
 | **Definition-aligned evidence** | Tree-sitter queries keep classes, functions, and methods whole, so a range is always a complete thought. |
@@ -130,7 +143,10 @@ it stays synchronized while you work.
 
 ## Benchmarks
 
-<img src="assets/benchmarks.svg" alt="Recorded session cost by benchmark task: production triage 0.381 dollars with Smritikosh versus 1.634 direct, interest computation 0.230 versus 0.330, architecture discovery 0.361 versus 1.259" width="100%">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks-light.svg">
+  <img src="assets/benchmarks-light.svg" alt="Recorded session cost by benchmark task: production triage 0.381 dollars with Smritikosh versus 1.634 reading the repository directly, interest computation 0.230 versus 0.330, architecture discovery 0.361 versus 1.259. Lower is better." width="100%" draggable="false"></picture>
 
 Paired agent sessions, same question and same effective model per pair:
 
@@ -175,8 +191,7 @@ On later runs, only changed files and chunks re-enter the expensive stages.
 - [`smritikosh/retrieval`](smritikosh/retrieval) — candidate fusion, diverse selection, definition and dependency expansion.
 - [`smritikosh/queries`](smritikosh/queries) — packaged tree-sitter tag queries.
 
-[`SEARCH_PIPELINE.md`](SEARCH_PIPELINE.md) walks the full indexing, ranking, expansion, and
-ports/adapters story. Indexes built before hybrid retrieval need one rebuild with
+Indexes built before hybrid retrieval need one rebuild with
 `smritikosh index /path/to/repo --db-path smritikosh.duckdb --full`.
 
 ## Development
@@ -207,7 +222,8 @@ Built by [Shantanu Vashishtha](https://github.com/learncoder4848) and
 
 Alpha. The pipeline runs end to end: `index` builds, `search` and `explore` query, and
 re-indexing is incremental at both the file and the chunk level. The CLI surface may still
-change before 1.0.
+change before 1.0. `.docx` documents and Slack threads are on the roadmap and not yet
+implemented — the hero above marks Slack as such.
 
 <div align="center">
 
