@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-label="Smritikosh — your agents deserve exact evidence">
+  <defs>
+    <style>.sans{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+      .mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}</style>
+    <linearGradient id="sk-wash" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0B1020"/><stop offset="1" stop-color="#0B1020"/>
+    </linearGradient>
+    <radialGradient id="sk-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#4C8DFF" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#4C8DFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#sk-wash)"/>
+  <circle cx="640.0" cy="198" r="320" fill="url(#sk-glow)"/>
+  
+  <g transform="translate(562.24,128) scale(1.62)"><path d="M 13.0 74.0 C 25.0 12.0 71.0 12.0 83.0 74.0" fill="none" stroke="#E6EAF2" stroke-width="7.0" stroke-linecap="round"/><circle cx="13.00" cy="74.00" r="8.5" fill="#E6EAF2"/><circle cx="26.58" cy="40.07" r="8.5" fill="#E6EAF2"/><circle cx="69.42" cy="40.07" r="8.5" fill="#E6EAF2"/><circle cx="83.00" cy="74.00" r="8.5" fill="#E6EAF2"/><circle cx="48.00" cy="27.50" r="13.5" fill="#4C8DFF"/></g>
+  <text class="sans" x="640.0" y="428" font-size="76" font-weight="600" letter-spacing="-2.2"
+        text-anchor="middle" fill="#E6EAF2">smriti<tspan fill="#4C8DFF">kosh</tspan></text>
+  <text class="sans" x="640.0" y="486" font-size="27" text-anchor="middle" fill="#9AA4BA">Your agents deserve exact evidence.</text>
+  <text class="mono" x="640.0" y="556" font-size="15" letter-spacing="3.2" text-anchor="middle" fill="#77839C">PRECISE &#183; INCREMENTAL &#183; LOCAL</text>
+</svg>
