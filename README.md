@@ -23,7 +23,7 @@ API keys, hosted vector databases, or sending source data off-device.
 [![Downloads](https://img.shields.io/pypi/dm/smritikosh?color=34D399)](https://pypi.org/project/smritikosh/)
 [![Python 3.10–3.13](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue)](https://www.python.org/)
 [![Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange)](#status)
+![Status: Alpha](https://img.shields.io/badge/status-alpha-orange)
 
 </div>
 
@@ -60,7 +60,7 @@ smritikosh explore chunks --range src/auth/policy.py 176 193
 Re-run `index` anytime — unchanged files are skipped, so only the Δ costs anything.
 Add `--watch` to keep it live while you work.
 
-## Retrieval — _built for agents, not for humans scrolling_
+## Retrieval — _evidence you can point at_
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/hybrid-retrieval-dark.svg">
@@ -166,20 +166,6 @@ On later runs, only changed files and chunks re-enter the expensive stages.
 Indexes built before hybrid retrieval need one rebuild with
 `smritikosh index /path/to/repo --db-path smritikosh.duckdb --full`.
 
-## Development
-
-Python 3.10–3.13, managed with uv:
-
-```bash
-uv sync --all-groups
-uv run pytest
-uv run ruff check smritikosh/ tests/
-```
-
-Poetry 2.x works too (`poetry install && make test`). CI runs the matrix across every
-supported Python version, enforces Ruff and 90% coverage, builds the wheel, and verifies that
-all packaged tree-sitter queries ship.
-
 ## We love contributors
 
 Every typo fix, new language query, retrieval tweak, and doc correction makes Smritikosh
@@ -189,13 +175,6 @@ better — small PRs as welcome as large ones. Start with
 
 Built by [Shantanu Vashishtha](https://github.com/learncoder4848) and
 [Sarvesh Sawant](https://github.com/devsarvesh92).
-
-## Status
-
-Alpha. The pipeline runs end to end: `index` builds, `search` and `explore` query, and
-re-indexing is incremental at both the file and the chunk level. The CLI surface may still
-change before 1.0. `.docx` documents and Slack threads are on the roadmap and not yet
-implemented — the hero above marks Slack as such.
 
 <div align="center">
 
