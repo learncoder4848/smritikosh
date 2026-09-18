@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" width="960" height="300" role="img" aria-label="One question is asked four ways at once. Each angle is searched twice, once for semantic recall using local embeddings and once for lexical precision using a BM25 index. The two rankings are merged with reciprocal rank fusion, every angle is guaranteed a seat, near-duplicates are dropped with maximal marginal relevance, and what comes back is whole definitions plus one reference hop, cited as exact line ranges.">
-  <title>How a search works: four angles, two ways to look, merged, trimmed, cited</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 264" width="960" height="264" role="img" aria-label="An agent asks one plain question &#8212; why can&apos;t users log in &#8212; and Smritikosh turns it into four angles: where login is decided, what it checks, where it says no, and the tests that cover it. Each angle runs down three retrieval channels: semantic recall over dense vectors, lexical precision over BM25, and a call-graph channel that is not yet implemented. The rankings are combined by Reciprocal Rank Fusion, Facet Reservation, and Maximal Marginal Relevance, and what survives comes back as a short list of exact line ranges such as auth/policy.py 176-193 &#8212; whole definitions plus one hop further, with line numbers that stay true.">
+  <title>Retrieval: one question, four angles, three channels, fused down to a handful of exact line ranges</title>
 
   <defs>
     <marker id="hr-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
@@ -21,117 +21,127 @@
       .scan  { animation: hr-scan 2.6s ease-in-out infinite; }
       @keyframes hr-scan { 0%,100% { opacity:.3 } 50% { opacity:1 } }
 
-      .step  { animation: hr-step 6s ease-out infinite; }
-      @keyframes hr-step {
-        0%      { opacity:.25 }
-        8%, 94% { opacity:1 }
-        100%    { opacity:.25 }
-      }
+      .blink { animation: hr-blink 4.4s ease-in-out infinite; transform-box:fill-box; transform-origin:center; }
+      @keyframes hr-blink { 0%,88%,100% { transform:scaleY(1) } 92% { transform:scaleY(.12) } }
+
+      .beat  { animation: hr-beat 1.4s ease-in-out infinite; transform-box:fill-box; transform-origin:center; }
+      @keyframes hr-beat { 0%,100% { transform:scale(1) } 50% { transform:scale(1.35) } }
 
       @media (prefers-reduced-motion: reduce) {
-        .flow,.flow2,.scan,.step { animation:none; opacity:1 }
+        .flow,.flow2,.scan,.blink,.beat { animation:none }
       }
     </style>
   </defs>
 
-  <rect x="0.5" y="0.5" width="959" height="299" rx="18" fill="#FFFFFF" stroke="#E7EAF0"/>
+  <rect x="0.5" y="0.5" width="959" height="263" rx="18" fill="#FFFFFF" stroke="#E7EAF0"/>
 
   <g class="mono cap">
-    <text x="32"  y="30" fill="#64748B">THE QUESTION</text>
-    <text x="266" y="30" fill="#2563EB">TWO CHANNELS</text>
-    <text x="500" y="30" fill="#64748B">MERGE AND TRIM</text>
-    <text x="734" y="30" fill="#059669">WHAT COMES BACK</text>
+    <text x="32"  y="30" fill="#64748B">ONE QUESTION, FOUR ANGLES</text>
+    <text x="266" y="30" fill="#2563EB">THREE CHANNELS</text>
+    <text x="500" y="30" fill="#64748B">FUSE AND SELECT</text>
+    <text x="734" y="30" fill="#059669">EXACT EVIDENCE</text>
   </g>
 
-  <!-- ============ one question, asked four ways ============ -->
-  <rect x="32" y="52" width="194" height="34" rx="10" fill="#F7F9FC"/>
-  <text class="mono ink" x="46" y="73" font-size="10.5">why is access denied?</text>
+  <!-- ============ the agent, and the question it asks ============ -->
+  <rect x="32" y="52" width="194" height="48" rx="10" fill="#F7F9FC"/>
+  <g transform="translate(56,76)">
+    <line x1="0" y1="-20" x2="0" y2="-15" stroke="#0F172A" stroke-width="1.6" stroke-linecap="round"/>
+    <circle class="beat" cx="0" cy="-22" r="2.4" fill="#059669"/>
+    <rect x="-15" y="-14" width="30" height="26" rx="8" fill="#C7DCFF"/>
+    <rect x="-11" y="-9" width="22" height="16" rx="5" fill="#0F172A"/>
+    <g fill="#6EE7B7" class="blink">
+      <circle cx="-4.5" cy="-1.5" r="1.7"/>
+      <circle cx="4.5"  cy="-1.5" r="1.7"/>
+    </g>
+  </g>
+  <text class="mono ink" x="80" y="80" font-size="10">why can&#8217;t users log in?</text>
 
   <g>
-    <rect x="32" y="98" width="194" height="30" rx="8" fill="#F7F9FC"/>
-    <text class="mono faint" x="46" y="117" font-size="9.5">1</text>
-    <text class="sans ink" x="64" y="117" font-size="11">how it decides</text>
+    <rect x="32" y="112" width="194" height="28" rx="8" fill="#F7F9FC"/>
+    <text class="mono faint" x="46" y="130" font-size="9">Q1</text>
+    <text class="sans ink" x="68" y="130" font-size="10.5">where login is decided</text>
   </g>
   <g>
-    <rect x="32" y="134" width="194" height="30" rx="8" fill="#F7F9FC"/>
-    <text class="mono faint" x="46" y="153" font-size="9.5">2</text>
-    <text class="sans ink" x="64" y="153" font-size="11">what it reads</text>
+    <rect x="32" y="144" width="194" height="28" rx="8" fill="#F7F9FC"/>
+    <text class="mono faint" x="46" y="162" font-size="9">Q2</text>
+    <text class="sans ink" x="68" y="162" font-size="10.5">what it checks</text>
   </g>
   <g>
-    <rect x="32" y="170" width="194" height="30" rx="8" fill="#F7F9FC"/>
-    <text class="mono faint" x="46" y="189" font-size="9.5">3</text>
-    <text class="sans ink" x="64" y="189" font-size="11">how it fails</text>
+    <rect x="32" y="176" width="194" height="28" rx="8" fill="#F7F9FC"/>
+    <text class="mono faint" x="46" y="194" font-size="9">Q3</text>
+    <text class="sans ink" x="68" y="194" font-size="10.5">where it says no</text>
   </g>
   <g>
-    <rect x="32" y="206" width="194" height="30" rx="8" fill="#F7F9FC"/>
-    <text class="mono faint" x="46" y="225" font-size="9.5">4</text>
-    <text class="sans ink" x="64" y="225" font-size="11">how it is tested</text>
+    <rect x="32" y="208" width="194" height="28" rx="8" fill="#F7F9FC"/>
+    <text class="mono faint" x="46" y="226" font-size="9">Q4</text>
+    <text class="sans ink" x="68" y="226" font-size="10.5">tests that cover it</text>
   </g>
 
-  <text class="sans faint" x="32" y="266" font-size="10">one question, asked four ways at once</text>
+  <!-- ============ every facet down all three channels ============ -->
+  <g fill="none" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 7">
+    <path class="flow" d="M226 144 C 244 144, 248 80, 266 80"  stroke="#9EC0F5"/>
+    <path class="flow" d="M226 144 H 266" stroke="#E0BC85" style="animation-delay:.4s"/>
+    <path class="flow" d="M226 144 C 244 144, 248 208, 266 208" stroke="#C3AEEF" style="animation-delay:.8s"/>
+  </g>
 
-  <!-- ============ each angle searched two ways ============ -->
-  <path class="flow" d="M226 167 C 246 167, 248 116, 266 116" fill="none" stroke="#9EC0F5"
-        stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 7"/>
-  <path class="flow" d="M226 167 C 246 167, 248 204, 266 204" fill="none" stroke="#E0BC85"
-        stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 7" style="animation-delay:.6s"/>
+  <rect x="266.5" y="52.5" width="193" height="55" rx="12" fill="#FFFFFF" stroke="#E0E5EE"/>
+  <circle cx="288" cy="72" r="4" fill="#2563EB"/>
+  <text class="sans ink" x="300" y="76" font-size="12.5" font-weight="600">semantic recall</text>
+  <text class="sans faint" x="288" y="94" font-size="9.5">dense vectors &#183; matches meaning</text>
 
-  <rect x="266.5" y="84.5" width="193" height="63" rx="12" fill="#FFFFFF" stroke="#E0E5EE"/>
-  <circle cx="288" cy="108" r="4" fill="#2563EB"/>
-  <text class="sans ink" x="300" y="112" font-size="12.5" font-weight="600">semantic recall</text>
-  <text class="sans faint" x="288" y="132" font-size="9.5">embeddings, matched on intent</text>
+  <rect x="266.5" y="116.5" width="193" height="55" rx="12" fill="#FFFFFF" stroke="#E0E5EE"/>
+  <circle cx="288" cy="136" r="4" fill="#B45309"/>
+  <text class="sans ink" x="300" y="140" font-size="12.5" font-weight="600">lexical precision</text>
+  <text class="sans faint" x="288" y="158" font-size="9.5">BM25 &#183; matches exact names</text>
 
-  <rect x="266.5" y="172.5" width="193" height="63" rx="12" fill="#FFFFFF" stroke="#E0E5EE"/>
-  <circle cx="288" cy="196" r="4" fill="#B45309"/>
-  <text class="sans ink" x="300" y="200" font-size="12.5" font-weight="600">lexical precision</text>
-  <text class="sans faint" x="288" y="220" font-size="9.5">BM25, matched on the symbol</text>
+  <rect x="266.5" y="180.5" width="193" height="55" rx="12" fill="#FFFFFF" stroke="#E0E5EE"/>
+  <circle cx="288" cy="200" r="4" fill="#7C3AED"/>
+  <text class="sans ink" x="300" y="204" font-size="12.5" font-weight="600">call graph</text>
+  <rect x="404" y="192.5" width="36" height="15" rx="7.5" fill="none" stroke="#D7DEE8"/>
+  <text class="mono faint" x="422" y="203" font-size="8" text-anchor="middle">soon</text>
+  <text class="sans faint" x="288" y="222" font-size="9.5">callers and callees &#183; blast radius</text>
 
-  <text class="sans faint" x="266" y="266" font-size="10">both run locally, on your CPU</text>
-
-  <!-- ============ merged into one shortlist ============ -->
-  <path class="flow" d="M460 116 C 480 116, 482 144, 500 144" fill="none" stroke="#9EC0F5"
-        stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 7" style="animation-delay:.3s"/>
-  <path class="flow" d="M460 204 C 480 204, 482 144, 500 144" fill="none" stroke="#E0BC85"
-        stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 7" style="animation-delay:.9s"/>
+  <!-- ============ fusion and selection ============ -->
+  <g fill="none" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 7">
+    <path class="flow" d="M460 80 C 478 80, 482 144, 500 144"  stroke="#9EC0F5" style="animation-delay:.2s"/>
+    <path class="flow" d="M460 144 H 500" stroke="#E0BC85" style="animation-delay:.6s"/>
+    <path class="flow" d="M460 208 C 478 208, 482 144, 500 144" stroke="#C3AEEF" style="animation-delay:1s"/>
+  </g>
 
   <rect x="500.5" y="52.5" width="193" height="183" rx="12" fill="#FFFFFF" stroke="#E0E5EE"/>
   <rect class="scan" x="501" y="53" width="192" height="3" rx="1.5" fill="#2563EB"/>
 
-  <g class="step">
-    <circle cx="519" cy="92" r="3" fill="#2563EB"/>
-    <text class="sans ink" x="532" y="96" font-size="11">best of both rankings</text>
-  </g>
-  <g class="step" style="animation-delay:.3s">
-    <circle cx="519" cy="128" r="3" fill="#2563EB"/>
-    <text class="sans ink" x="532" y="132" font-size="11">every angle keeps a seat</text>
-  </g>
-  <g class="step" style="animation-delay:.6s">
-    <circle cx="519" cy="164" r="3" fill="#2563EB"/>
-    <text class="sans ink" x="532" y="168" font-size="11">near-duplicates dropped</text>
-  </g>
+  <circle cx="519" cy="96" r="3" fill="#2563EB"/>
+  <text class="sans ink" x="532" y="100" font-size="10.5">Reciprocal Rank Fusion</text>
+  <circle cx="519" cy="140" r="3" fill="#2563EB"/>
+  <text class="sans ink" x="532" y="144" font-size="10.5">Facet Reservation</text>
+  <circle cx="519" cy="184" r="3" fill="#2563EB"/>
+  <text class="sans ink" x="532" y="188" font-size="10.5">Maximal Marginal Relevance</text>
 
-  <line x1="516" y1="190" x2="678" y2="190" stroke="#EEF1F6" stroke-width="1"/>
-  <text class="sans faint" x="516" y="214" font-size="10">many candidates become a few</text>
-
-  <text class="sans faint" x="500" y="266" font-size="10">no angle drowns out another</text>
-
-  <!-- ============ what the agent is handed ============ -->
+  <!-- ============ what the agent gets back ============ -->
   <path class="flow2" d="M694 144 H 728" fill="none" stroke="#059669" stroke-opacity="0.7"
         stroke-width="1.6" stroke-linecap="round" stroke-dasharray="5 8" marker-end="url(#hr-arrow)"/>
 
   <rect x="734.5" y="52.5" width="193" height="183" rx="12" fill="#F7F9FC" stroke="#EDF0F5"/>
 
-  <rect x="750" y="84" width="3" height="14" rx="1.5" fill="#059669"/>
-  <text class="sans ink" x="763" y="95" font-size="11">whole functions, never half</text>
+  <rect x="750" y="70" width="3" height="12" rx="1.5" fill="#059669"/>
+  <text class="sans ink" x="762" y="80" font-size="11" font-weight="600">only the lines that answer it</text>
 
-  <rect x="750" y="120" width="3" height="14" rx="1.5" fill="#059669"/>
-  <text class="sans ink" x="763" y="131" font-size="11">plus what they call</text>
+  <g class="mono">
+    <rect x="750.5" y="94.5" width="161" height="23" rx="7" fill="#FFFFFF" stroke="#E4E9F0"/>
+    <text x="762" y="109" font-size="9" fill="#334155">auth/policy.py</text>
+    <text x="903" y="109" font-size="9" fill="#047857" text-anchor="end">176-193</text>
 
-  <rect x="750.5" y="156.5" width="114" height="25" rx="7" fill="#FFFFFF" stroke="#CDE4DA"/>
-  <text class="mono" x="763" y="173" font-size="10.5" fill="#047857">PATH:START-END</text>
+    <rect x="750.5" y="122.5" width="161" height="23" rx="7" fill="#FFFFFF" stroke="#E4E9F0"/>
+    <text x="762" y="137" font-size="9" fill="#334155">auth/session.py</text>
+    <text x="903" y="137" font-size="9" fill="#047857" text-anchor="end">44-61</text>
 
-  <line x1="750" y1="198" x2="912" y2="198" stroke="#E4E9F0" stroke-width="1"/>
-  <text class="sans faint" x="750" y="220" font-size="10">line numbers you can quote</text>
+    <rect x="750.5" y="150.5" width="161" height="23" rx="7" fill="#FFFFFF" stroke="#E4E9F0"/>
+    <text x="762" y="165" font-size="9" fill="#334155">tests/test_auth.py</text>
+    <text x="903" y="165" font-size="9" fill="#047857" text-anchor="end">88-102</text>
+  </g>
 
-  <text class="sans faint" x="734" y="266" font-size="10">search finds them, you choose what to read</text>
+  <line x1="750" y1="191" x2="912" y2="191" stroke="#E4E9F0" stroke-width="1"/>
+  <text class="sans faint" x="750" y="208" font-size="9.5">whole definitions &#183; one hop further</text>
+  <text class="sans faint" x="750" y="224" font-size="9.5">line numbers that stay true</text>
 </svg>
