@@ -106,64 +106,31 @@ cumulative token counts include repeated cache reads. The artifacts deliberately
 each answer fell short — the interest run was 12.6 seconds slower, and the triage baseline
 covered more repositories — so the efficiency numbers can be read honestly.
 
-## What Smritikosh offers
+## How it extends — _ports and adapters_
 
-| | |
-| --- | --- |
-| **One index, many sources** | Point `index` at each repository and docs tree in turn; they share one database and are searched as a single corpus. A production-triage assistant can trace ownership, events, gates, and failure paths, and an answer can cite two services and a design doc at once. |
-| **Agent-ready exploration** | `explore tools` teaches the model how to search, verify, cite, and stop. `search` finds candidates, `chunks` reads only the selected ranges, so a code-aware agent can retrieve the exact implementation and its tests before answering. |
-| **Hybrid search** | Dense vectors for meaning, BM25 for identifiers, RRF for fusion, Facet Reservation for coverage, MMR for diversity — the retrieval a repository Q&A needs so every citation points back to the precise range used as evidence. |
-| **Definition-aligned evidence** | Tree-sitter queries keep classes, functions, and methods whole, so a range is always a complete thought. Architecture discovery tools map those definitions and their direct references without loading whole repositories into context. |
-| **Δ incremental re-indexing** | SHA-256 file skipping, chunk-level memoization keyed on content *and* on the code that produced it, stale-chunk retirement, optional `--watch`. |
-| **Local and read-only** | Source, metadata, vectors, BM25 postings, and incremental state live in one DuckDB file. Exploration never takes a write lock or touches the source tree — offline developer tooling, with no source sent to a hosted service. |
-| **Multi-language** | AST-aware indexing for Python, TypeScript, JavaScript, Java, and Kotlin; structure-aware strategies for Markdown, MDX, JSON, and TOML. |
+The pipeline talks to contracts, never to what sits behind them:
+[`ports`](smritikosh/ports) defines them, [`adapters`](smritikosh/adapters) is what exists
+today.
+
+| Plug point | Shipping today | Same contract, not yet written |
+| --- | --- | --- |
+| **Source** | Local filesystem, `.gitignore`-aware | Slack, Google Drive, S3, Confluence, meeting notes |
+| **Structure** | Python, TypeScript, JavaScript, Java, Kotlin, Markdown, MDX, JSON, TOML | Go, Rust, C#; transcripts by speaker turn, tickets by field |
+| **Store** | DuckDB, one local file | Postgres with pgvector, Qdrant, Neo4j |
+| **Embedder** | FastEmbed on local ONNX, no API key | OpenAI, Voyage, or any hosted model |
+| **Retrieval** | Dense vectors and BM25 | Call graph — callers and callees |
 
 ## How it works
 
-Indexing is a four-step walk onto one DuckDB file. Search is the reverse: a question hits
-those indexes, then comes back as a handful of line ranges.
+Indexing walks the tree once and writes everything into one DuckDB file. Search reads that
+same file back as a handful of line ranges.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/how-it-works-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/how-it-works-light.svg">
-  <img src="assets/how-it-works-light.svg" alt="How Smritikosh works. It walks the tree, skipping gitignored files and routing each remaining file by language. It parses the file, extracts whole definitions, and chunks them so a function stays a function. Each chunk is stored three ways in one local DuckDB persistence layer: dense vectors for meaning, BM25 for exact names, and a call-graph channel that is not yet implemented. Chunks, metadata, vectors, BM25 postings, and incremental hash-and-memo state share that same DuckDB file. On later runs only files whose content hash changed re-enter the expensive stages. Search then returns exact PATH start-end ranges." width="100%" draggable="false"></picture>
+  <img src="assets/how-it-works-light.svg" alt="How Smritikosh works, end to end, for documents, code and config alike. Step 1, walk the tree: it discovers the files in a project, here a handbook, a source file and a settings file, and skips what you ignore, shown struck through. Step 2, keep whole thoughts: it parses structure rather than plain text, extracts the definitions and sections it finds, and chunks them so a range is always one whole idea. Step 3, index three ways, each drawn as a small picture: a cloud of scattered dots for semantic recall, two literal tokens for lexical precision, and a five-node graph of connected callers and callees for the call graph, which is still to come. Step 4, re-read only the delta: the changed file is read again while the unchanged ones are skipped. Step 5, persist: chunks and metadata, dense vectors, BM25 postings, and the hash and memo state all live in one local database file, smritikosh.duckdb. Search reads that same file back: a question is fused across the rankings, coverage is kept and near-duplicates dropped, survivors expand to whole passages, and the answer comes back as an exact path with a start and end line, never the file body." width="100%" draggable="false"></picture>
 
-**1. Walk the tree.** Discovery respects `.gitignore`, then the language router sends each
-file to the right parser — Python, TypeScript, JavaScript, Java, Kotlin, Markdown, and a
-few structured formats.
-
-**2. Keep whole thoughts.** Parse the AST, extract classes / functions / methods, then
-chunk so a citation is never the tail of one function and the head of the next.
-
-**3. Index three ways.** The same chunks land in dense vectors (meaning) and BM25 (exact
-names) inside one local DuckDB file. A call-graph channel — callers and callees — is next.
-
-**4. Re-read only Δ.** A content hash decides whether a file is touched at all. Unchanged
-chunks keep the vectors they already have. Add `--watch` and this happens as you save.
-
-**5. Persist locally.** Chunks, metadata, dense vectors, BM25 postings, and incremental
-state live in one `smritikosh.duckdb` — the same file search reads.
-
-Ask a question and [hybrid retrieval](#retrieval--evidence-you-can-point-at) fuses those
-rankings, keeps one hit per angle, drops near-duplicates, and expands survivors to complete
-definitions plus one reference hop — then returns `PATH START-END`, never the file body.
-
-| Package | Job |
-| --- | --- |
-| [`smritikosh/indexing`](smritikosh/indexing) | Discover files, parse, extract, chunk, orchestrate the pipeline |
-| [`smritikosh/queries`](smritikosh/queries) | Tree-sitter tag queries per language |
-| [`smritikosh/engine`](smritikosh/engine) | Memoization, change tracking, batching, concurrency |
-| [`smritikosh/ports`](smritikosh/ports) | Contracts for file source, storage, vectors, and embedders |
-| [`smritikosh/adapters`](smritikosh/adapters) | Local filesystem, DuckDB, and embedding implementations |
-| [`smritikosh/retrieval`](smritikosh/retrieval) | Fuse candidates, keep coverage, expand definitions |
-
-Indexes built before hybrid retrieval need one rebuild:
-
-```bash
-smritikosh index /path/to/repo --db-path smritikosh.duckdb --full
-```
-
-Built by [Shantanu Vashishtha](https://github.com/learncoder4848) and
+**Built by** [Shantanu Vashishtha](https://github.com/learncoder4848) and
 [Sarvesh Sawant](https://github.com/devsarvesh92).
 
 <div align="center">
