@@ -79,19 +79,19 @@ re-reads what changed.
 
 ## Benchmarks
 
-<img src="https://raw.githubusercontent.com/learncoder4848/smritikosh/main/assets/benchmarks-light.svg" alt="Recorded session cost by benchmark task: production triage 0.381 dollars with Smritikosh versus 1.634 reading the repository directly, single-repo analysis 0.230 versus 0.330, architecture discovery 0.361 versus 1.259. Lower is better." width="100%" draggable="false">
+<img src="https://raw.githubusercontent.com/learncoder4848/smritikosh/main/assets/benchmarks-light.svg" alt="Recorded session cost by benchmark task: multi-repo analysis 0.381 dollars with Smritikosh versus 1.634 reading the repository directly, single-repo analysis 0.230 versus 0.330, architecture discovery 0.361 versus 1.259. Lower is better." width="100%" draggable="false">
 
 Paired agent sessions, same question and same effective model per pair:
 
 | Task | Smritikosh | Baseline | Effect |
 | --- | --- | --- | --- |
-| Multi-repo production triage | 105.3 s · $0.381 | 193.4 s · $1.634 | 45.6% faster · 76.7% cheaper · 90.0% fewer tokens |
+| Multi-repo analysis | 105.3 s · $0.381 | 193.4 s · $1.634 | 45.6% faster · 76.7% cheaper · 90.0% fewer tokens |
 | Single-repo analysis | 68.4 s · $0.230 | 55.8 s · $0.330 | 30.4% cheaper · 32.5% fewer tokens · 40% fewer tool calls |
 | Curated architecture discovery | 56.6 s · $0.361 | 113.9 s · $1.259 | 50.3% faster · 71.3% cheaper · 80.4% fewer tokens |
 
 These are individual exported sessions, not statistically controlled measurements, and
 cumulative token counts include repeated cache reads. The table keeps the cases that went the
-other way (the single-repo run was 12.6 seconds slower, and the triage baseline covered more
+other way (the single-repo run was 12.6 seconds slower, and the multi-repo baseline covered more
 repositories), so the efficiency numbers can be read honestly.
 
 ## How it extends: _ports and adapters_
