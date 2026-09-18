@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 340" width="960" height="340" role="img" aria-label="What you can build on Smritikosh, as six cards over two rows. The top row is shipping today over code, Markdown and config, and every card ends in a citation. Card one, five git repositories: gateway, service and worker in one index, so one question returns lines from whichever repository owns the answer, citing plt-notification-svc/handler.py lines 88 to 102. Card two, code plus Markdown: onboarding from docs and code together, where the handbook explains and the source proves, citing docs/billing-handbook.md lines 42 to 58. Card three, one repository: business rules you can check, the formula, the branch that changes it and the test that pins the number, citing core/interest.py lines 176 to 193. The bottom row is the same ports with adapters not yet written, each marked soon: Slack threads for why a decision was made, PDF and DOCX for the clause rather than the whole contract, meeting notes for who committed to what by speaker turn, and CSV tables for the row that explains a number. Everything lands in one local smritikosh.duckdb file and is searched as a single corpus. Keywords: multi-repo code search, RAG use cases, Slack search, PDF retrieval, meeting notes, CSV ingestion, agent context, exact citations, line ranges.">
+  <title>What you can build: multi-repo triage, docs-and-code onboarding and checkable business rules today; Slack, PDF, meeting notes and CSV on the same contract</title>
+
+  <defs>
+    <style>
+      .sans{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+      .mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+      .cap{font-size:10px;letter-spacing:.2em;font-weight:700}
+      .tag{font-size:8px;letter-spacing:.14em;font-weight:700}
+      .ink{fill:#0F172A}
+      .mut{fill:#64748B}
+      .faint{fill:#94A3B8}
+
+      /* Sources that are live keep breathing; the unwritten ones below sit still. */
+      .twinkle { animation: wb-twinkle 3.2s ease-in-out infinite; }
+      @keyframes wb-twinkle { 0%,100% { opacity:.55 } 50% { opacity:1 } }
+
+      @media (prefers-reduced-motion: reduce) {
+        .twinkle { animation:none }
+      }
+    </style>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="339" rx="18" fill="#FFFFFF" stroke="#C3CCD9"/>
+
+  <!-- ============ row one: what ships today ============ -->
+  <text class="mono cap" x="32" y="30" fill="#64748B">TODAY &#183; CODE, MARKDOWN, CONFIG</text>
+  <text class="sans faint" x="928" y="30" font-size="10" text-anchor="end">one smritikosh.duckdb &#183; searched as a single corpus</text>
+
+  <!-- multi-repo triage -->
+  <rect x="32.5" y="44.5" width="285" height="140" rx="12" fill="#FFFFFF" stroke="#BDC7D7"/>
+  <circle class="twinkle" cx="50" cy="64" r="3.4" fill="#2563EB"/>
+  <text class="mono tag" x="62" y="68" fill="#2563EB">5 GIT REPOS</text>
+  <text class="sans ink" x="48" y="96" font-size="13" font-weight="600">Triage that crosses services</text>
+  <text class="sans faint" x="48" y="116" font-size="10.5">gateway, service and worker in one index</text>
+  <text class="sans faint" x="48" y="132" font-size="10.5">one question, lines from whichever owns it</text>
+  <rect x="48.5" y="144.5" width="254" height="26" rx="7" fill="#F7F9FC" stroke="#D3DBE6"/>
+  <text class="mono" x="60" y="161" font-size="9" fill="#334155">plt-notification-svc/handler.py</text>
+  <text class="mono" x="291" y="161" font-size="9" fill="#047857" text-anchor="end">88-102</text>
+
+  <!-- docs beside the code -->
+  <rect x="337.5" y="44.5" width="285" height="140" rx="12" fill="#FFFFFF" stroke="#BDC7D7"/>
+  <circle class="twinkle" cx="355" cy="64" r="3.4" fill="#059669" style="animation-delay:.5s"/>
+  <text class="mono tag" x="367" y="68" fill="#059669">CODE + MARKDOWN</text>
+  <text class="sans ink" x="353" y="96" font-size="13" font-weight="600">Onboarding from docs and code</text>
+  <text class="sans faint" x="353" y="116" font-size="10.5">the handbook explains, the source proves</text>
+  <text class="sans faint" x="353" y="132" font-size="10.5">one answer, both of them cited</text>
+  <rect x="353.5" y="144.5" width="254" height="26" rx="7" fill="#F7F9FC" stroke="#D3DBE6"/>
+  <text class="mono" x="365" y="161" font-size="9" fill="#334155">docs/billing-handbook.md</text>
+  <text class="mono" x="596" y="161" font-size="9" fill="#047857" text-anchor="end">42-58</text>
+
+  <!-- business rules in one repo -->
+  <rect x="642.5" y="44.5" width="285" height="140" rx="12" fill="#FFFFFF" stroke="#BDC7D7"/>
+  <circle class="twinkle" cx="660" cy="64" r="3.4" fill="#B45309" style="animation-delay:1s"/>
+  <text class="mono tag" x="672" y="68" fill="#B45309">ONE REPO</text>
+  <text class="sans ink" x="658" y="96" font-size="13" font-weight="600">Business rules you can check</text>
+  <text class="sans faint" x="658" y="116" font-size="10.5">the formula and the branch that changes it</text>
+  <text class="sans faint" x="658" y="132" font-size="10.5">plus the test that pins the number down</text>
+  <rect x="658.5" y="144.5" width="254" height="26" rx="7" fill="#F7F9FC" stroke="#D3DBE6"/>
+  <text class="mono" x="670" y="161" font-size="9" fill="#334155">core/interest.py</text>
+  <text class="mono" x="901" y="161" font-size="9" fill="#047857" text-anchor="end">176-193</text>
+
+  <!-- ============ row two: same contract, sources not yet written ============ -->
+  <text class="mono cap" x="32" y="214" fill="#7C3AED">NEXT &#183; SAME CONTRACT, NEW SOURCES</text>
+  <text class="sans faint" x="928" y="214" font-size="10" text-anchor="end">the port exists &#183; the adapter is not written yet</text>
+
+  <!-- slack -->
+  <rect x="32.5" y="228.5" width="214" height="96" rx="12" fill="#F7F9FC" stroke="#C0CAD9"/>
+  <circle cx="50" cy="248" r="3" fill="#7C3AED"/>
+  <text class="mono tag" x="61" y="252" fill="#7C3AED">SLACK</text>
+  <rect x="197" y="241" width="34" height="14" rx="7" fill="none" stroke="#B2BFD1"/>
+  <text class="mono faint" x="214" y="251.5" font-size="8" text-anchor="middle">soon</text>
+  <text class="sans ink" x="48" y="276" font-size="11.5" font-weight="600">Why we decided that</text>
+  <text class="sans faint" x="48" y="294" font-size="9.5">the thread that settled it, quoted</text>
+  <text class="mono faint" x="48" y="314" font-size="8.5">#platform &#183; 12 Apr 14:31</text>
+
+  <!-- pdf and docx -->
+  <rect x="259.5" y="228.5" width="214" height="96" rx="12" fill="#F7F9FC" stroke="#C0CAD9"/>
+  <circle cx="277" cy="248" r="3" fill="#7C3AED"/>
+  <text class="mono tag" x="288" y="252" fill="#7C3AED">PDF &#183; DOCX</text>
+  <rect x="424" y="241" width="34" height="14" rx="7" fill="none" stroke="#B2BFD1"/>
+  <text class="mono faint" x="441" y="251.5" font-size="8" text-anchor="middle">soon</text>
+  <text class="sans ink" x="275" y="276" font-size="11.5" font-weight="600">The clause, not the PDF</text>
+  <text class="sans faint" x="275" y="294" font-size="9.5">specs and agreements, by page</text>
+  <text class="mono faint" x="275" y="314" font-size="8.5">msa-2026.pdf &#183; p.14 &#167;3.2</text>
+
+  <!-- meeting notes -->
+  <rect x="486.5" y="228.5" width="214" height="96" rx="12" fill="#F7F9FC" stroke="#C0CAD9"/>
+  <circle cx="504" cy="248" r="3" fill="#7C3AED"/>
+  <text class="mono tag" x="515" y="252" fill="#7C3AED">MEETING NOTES</text>
+  <rect x="651" y="241" width="34" height="14" rx="7" fill="none" stroke="#B2BFD1"/>
+  <text class="mono faint" x="668" y="251.5" font-size="8" text-anchor="middle">soon</text>
+  <text class="sans ink" x="502" y="276" font-size="11.5" font-weight="600">Who committed to what</text>
+  <text class="sans faint" x="502" y="294" font-size="9.5">action items, by speaker turn</text>
+  <text class="mono faint" x="502" y="314" font-size="8.5">weekly-sync.vtt &#183; 12:04</text>
+
+  <!-- csv and tables -->
+  <rect x="713.5" y="228.5" width="214" height="96" rx="12" fill="#F7F9FC" stroke="#C0CAD9"/>
+  <circle cx="731" cy="248" r="3" fill="#7C3AED"/>
+  <text class="mono tag" x="742" y="252" fill="#7C3AED">CSV &#183; TABLES</text>
+  <rect x="878" y="241" width="34" height="14" rx="7" fill="none" stroke="#B2BFD1"/>
+  <text class="mono faint" x="895" y="251.5" font-size="8" text-anchor="middle">soon</text>
+  <text class="sans ink" x="729" y="276" font-size="11.5" font-weight="600">The row that explains it</text>
+  <text class="sans faint" x="729" y="294" font-size="9.5">reference data as evidence</text>
+  <text class="mono faint" x="729" y="314" font-size="8.5">pricing.csv &#183; row 482</text>
+</svg>

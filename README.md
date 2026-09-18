@@ -130,6 +130,31 @@ same file back as a handful of line ranges.
   <source media="(prefers-color-scheme: light)" srcset="assets/how-it-works-light.svg">
   <img src="assets/how-it-works-light.svg" alt="How Smritikosh works, end to end, for documents, code and config alike. Step 1, walk the tree: it discovers the files in a project, here a handbook, a source file and a settings file, and skips what you ignore, shown struck through. Step 2, keep whole thoughts: it parses structure rather than plain text, extracts the definitions and sections it finds, and chunks them so a range is always one whole idea. Step 3, index three ways, each drawn as a small picture: a cloud of scattered dots for semantic recall, two literal tokens for lexical precision, and a five-node graph of connected callers and callees for the call graph, which is still to come. Step 4, re-read only the delta: the changed file is read again while the unchanged ones are skipped. Step 5, persist: chunks and metadata, dense vectors, BM25 postings, and the hash and memo state all live in one local database file, smritikosh.duckdb. Search reads that same file back: a question is fused across the rankings, coverage is kept and near-duplicates dropped, survivors expand to whole passages, and the answer comes back as an exact path with a start and end line, never the file body." width="100%" draggable="false"></picture>
 
+## What can you build?
+
+The recipe never changes: `index` whatever the answer could live in, then let the agent
+`search` and read only the ranges it picks. Only what you point it at is different.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/what-you-build-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/what-you-build-light.svg">
+  <img src="assets/what-you-build-light.svg" alt="What you can build on Smritikosh, as six cards over two rows. The top row ships today over code, Markdown and config, and every card ends in a citation. Five git repositories: gateway, service and worker in one index, so one question returns lines from whichever repository owns the answer, citing plt-notification-svc/handler.py lines 88 to 102. Code plus Markdown: onboarding from docs and code together, where the handbook explains and the source proves, citing docs/billing-handbook.md lines 42 to 58. One repository: business rules you can check, the formula, the branch that changes it and the test that pins the number, citing core/interest.py lines 176 to 193. The bottom row is the same ports with adapters not yet written, each marked soon: Slack threads for why a decision was made, PDF and DOCX for the clause rather than the whole file, meeting notes for who committed to what by speaker turn, and CSV tables for the row that explains a number. Everything lands in one local smritikosh.duckdb and is searched as a single corpus. Keywords: multi-repo code search, RAG use cases, Slack search, PDF retrieval, meeting notes, CSV ingestion, agent context, exact citations, line ranges." width="100%" draggable="false"></picture>
+
+Every card in the top row is recorded end to end under [Benchmarks](#benchmarks) — the same
+question asked with the index and without it, transcripts and cost included. A
+[multi-repo brainstorm](benchmark/multi-repo/developer-brainstrom/pi-session-comparison.canvas.tsx)
+is recorded too: asked which services a change would touch, the indexed run matched the expected
+four exactly while the direct-exploration run added a fifth that wasn't impacted — and found one
+test the indexed run had left unverified.
+
+The bottom row is the honest half. Those sources have a [port](smritikosh/ports) and no adapter
+behind it yet, so the citations on those cards are the shape they will take, not something you
+can run this week — [open an issue](https://github.com/learncoder4848/smritikosh/issues) for the
+one you need first, or build it against the same contract.
+
+Built something on top of Smritikosh?
+[Tell us](https://github.com/learncoder4848/smritikosh/issues) — we want to see it.
+
 **Built by** [Shantanu Vashishtha](https://github.com/learncoder4848) and
 [Sarvesh Sawant](https://github.com/devsarvesh92).
 
