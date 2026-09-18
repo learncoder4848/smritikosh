@@ -79,19 +79,19 @@ re-reads what changed.
 
 ## Benchmarks
 
-<img src="https://raw.githubusercontent.com/learncoder4848/smritikosh/main/assets/benchmarks-light.svg" alt="Recorded session cost by benchmark task: production triage 0.381 dollars with Smritikosh versus 1.634 reading the repository directly, interest computation 0.230 versus 0.330, architecture discovery 0.361 versus 1.259. Lower is better." width="100%" draggable="false">
+<img src="https://raw.githubusercontent.com/learncoder4848/smritikosh/main/assets/benchmarks-light.svg" alt="Recorded session cost by benchmark task: multi-repo analysis 0.381 dollars with Smritikosh versus 1.634 reading the repository directly, single-repo analysis 0.230 versus 0.330, architecture discovery 0.361 versus 1.259. Lower is better." width="100%" draggable="false">
 
 Paired agent sessions, same question and same effective model per pair:
 
 | Task | Smritikosh | Baseline | Effect |
 | --- | --- | --- | --- |
-| Multi-repo production triage | 105.3 s · $0.381 | 193.4 s · $1.634 | 45.6% faster · 76.7% cheaper · 90.0% fewer tokens |
-| Single-repo interest computation | 68.4 s · $0.230 | 55.8 s · $0.330 | 30.4% cheaper · 32.5% fewer tokens · 40% fewer tool calls |
+| Multi-repo analysis | 105.3 s · $0.381 | 193.4 s · $1.634 | 45.6% faster · 76.7% cheaper · 90.0% fewer tokens |
+| Single-repo analysis | 68.4 s · $0.230 | 55.8 s · $0.330 | 30.4% cheaper · 32.5% fewer tokens · 40% fewer tool calls |
 | Curated architecture discovery | 56.6 s · $0.361 | 113.9 s · $1.259 | 50.3% faster · 71.3% cheaper · 80.4% fewer tokens |
 
 These are individual exported sessions, not statistically controlled measurements, and
 cumulative token counts include repeated cache reads. The table keeps the cases that went the
-other way (the interest run was 12.6 seconds slower, and the triage baseline covered more
+other way (the single-repo run was 12.6 seconds slower, and the multi-repo baseline covered more
 repositories), so the efficiency numbers can be read honestly.
 
 ## How it extends: _ports and adapters_
@@ -121,7 +121,7 @@ same file back as a handful of line ranges.
 The recipe never changes: `index` whatever the answer could live in, then let the agent
 `search` and read only the ranges it picks. Only what you point it at is different.
 
-<img src="https://raw.githubusercontent.com/learncoder4848/smritikosh/main/assets/what-you-build-light.svg" alt="What you can build on Smritikosh, as six cards over two rows. The top row ships today over code, Markdown and config, and every card ends in a citation. Five git repositories: gateway, service and worker in one index, so one question returns lines from whichever repository owns the answer, citing plt-notification-svc/handler.py lines 88 to 102. Code plus Markdown: onboarding from docs and code together, where the handbook explains and the source proves, citing docs/billing-handbook.md lines 42 to 58. One repository: business rules you can check, the formula, the branch that changes it and the test that pins the number, citing core/interest.py lines 176 to 193. The bottom row is the same ports with adapters not yet written, each marked soon: Slack threads for why a decision was made, PDF and DOCX for the clause rather than the whole file, meeting notes for who committed to what by speaker turn, and CSV tables for the row that explains a number. Everything lands in one local smritikosh.duckdb and is searched as a single corpus." width="100%" draggable="false">
+<img src="https://raw.githubusercontent.com/learncoder4848/smritikosh/main/assets/what-you-build-light.svg" alt="What you can build on Smritikosh, as six cards over two rows. The top row ships today over code, Markdown and config, and every card ends in a citation. Five git repositories: gateway, service and worker in one index, so one question returns lines from whichever repository owns the answer, citing plt-notification-svc/handler.py lines 88 to 102. Code plus Markdown: onboarding from docs and code together, where the handbook explains and the source proves, citing docs/billing-handbook.md lines 42 to 58. One repository: business rules you can check, the formula, the branch that changes it and the test that pins the number, citing src/billing/charges.py lines 176 to 193. The bottom row is the same ports with adapters not yet written, each marked soon: Slack threads for why a decision was made, PDF and DOCX for the clause rather than the whole file, meeting notes for who committed to what by speaker turn, and CSV tables for the row that explains a number. Everything lands in one local smritikosh.duckdb and is searched as a single corpus." width="100%" draggable="false">
 
 Every card in the top row is measured under [Benchmarks](#benchmarks): the same question asked
 with the index and without it, time and cost recorded for both runs.
