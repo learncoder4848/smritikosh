@@ -67,19 +67,12 @@ Add `--watch` to keep it live while you work.
   <source media="(prefers-color-scheme: light)" srcset="assets/hybrid-retrieval-light.svg">
   <img src="assets/hybrid-retrieval-light.svg" alt="An agent asks one plain question, why can't users log in, and Smritikosh turns it into four angles: where login is decided, what it checks, where it says no, and the tests that cover it. Each angle runs down three retrieval channels: semantic recall over dense vectors, lexical precision over BM25, and a call-graph channel that is not yet implemented. The rankings are combined by Reciprocal Rank Fusion, Facet Reservation, and Maximal Marginal Relevance, and what survives comes back as a short list of exact line ranges such as auth/policy.py 176-193: whole definitions plus one hop further, with line numbers that stay true." width="100%" draggable="false"></picture>
 
-Ask one question — _why can't users log in?_ — and Smritikosh asks it four ways: where the
-decision is made, what it checks, where it says no, and the tests that cover it. Every angle
-runs down every channel: dense vectors for semantic recall, BM25 for lexical precision, call
-graph soon. Reciprocal Rank Fusion merges the rankings, Facet Reservation guarantees each
-angle a seat, Maximal Marginal Relevance drops near-duplicates, and survivors expand to
-complete definitions plus one direct-reference hop.
+Ask _why can't users log in?_ and Smritikosh looks at it from four sides: where the decision
+is made, what it checks, where it says no, and the tests that cover it.
 
-Results come back as a compact table that declares its columns once and then emits one row
-per hit — the same answer for a fraction of the tokens JSON would cost.
-
-`search` returns locations, never contents. Copy a row into `chunks --range PATH START END`,
-repeating `--range` to read several spans in one process. `chunks PATH` outlines what a file
-defines; `--prose` switches either command to human-readable output.
+It matches the idea _and_ the exact names, keeps an answer from every side, drops
+near-copies, and widens each one to the whole thought plus one place that refers to it —
+so what comes back is the exact lines, not everything around them.
 
 ## Why _incremental?_
 
