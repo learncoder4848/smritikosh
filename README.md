@@ -3,7 +3,7 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/hero-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/hero-light.svg">
-  <img src="assets/hero-light.svg" alt="One repository, many repositories, documents and Slack feed into Smritikosh, a single local index that splits every source into complete, findable pieces and searches them both by meaning and by exact words. It hands a coding agent a handful of exact ranges &mdash; from either repository, from a document, or from a Slack thread &mdash; instead of the whole corpus, and re-reads only what changed. Keywords: semantic code search, hybrid retrieval, BM25, reciprocal rank fusion, maximal marginal relevance, tree-sitter, incremental indexing, local-first RAG, agent context, exact citations." width="100%" draggable="false"></picture>
+  <img src="assets/hero-light.svg" alt="One repository, many repositories, documents and Slack stay live as they change. Smritikosh keeps them in sync incrementally, re-reading only the delta and leaving everything else untouched, then hands a coding agent a handful of exact source ranges &mdash; from either repository, from a document, or from a Slack thread &mdash; that never point at a stale line number. Keywords: incremental sync, always-fresh context, semantic code search, hybrid retrieval, agent memory, exact citations, local-first RAG." width="100%" draggable="false"></picture>
 
 # Your agents deserve _exact evidence._
 
@@ -12,14 +12,11 @@
 [Benchmarks](#benchmarks) ·
 [Issues](https://github.com/learncoder4848/smritikosh/issues)
 
-Smritikosh turns one codebase — or fifty, plus the documents and threads around them — into a
-single local index your coding agent can search, and hands back the handful of exact passages
-that answer a question, cited down to the line. No tour of the file tree, no whole-file dumps,
-no stale context. Index once in minutes, keep it fresh for the price of the diff, and cite
-`PATH:START-END` every time — no API key, no hosted vector database, no source leaving your
-machine.
+Smritikosh is a local-first indexing and retrieval tool for code, documents, and conversations.
+It incrementally indexes changes and returns precise, line-cited passages for agents—without
+API keys, hosted vector databases, or sending source data off-device.
 
-**Exact** · cited to the line &nbsp;·&nbsp; **Incremental** · only the Δ &nbsp;·&nbsp; **Local** · no key, no cloud
+**Precise** · line-level citations &nbsp;·&nbsp; **Incremental** · indexes only changes &nbsp;·&nbsp; **Local** · no API keys or cloud
 
 [![CI](https://github.com/learncoder4848/smritikosh/actions/workflows/ci.yml/badge.svg)](https://github.com/learncoder4848/smritikosh/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/smritikosh?color=4C8DFF)](https://pypi.org/project/smritikosh/)
@@ -82,7 +79,7 @@ only network access is a one-time model download.
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/hybrid-retrieval-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/hybrid-retrieval-light.svg">
-  <img src="assets/hybrid-retrieval-light.svg" alt="One question is asked four ways at once. Each angle is searched twice, once by meaning using local embeddings and once by exact words using a BM25 index. The two rankings are merged with Reciprocal Rank Fusion, every angle is reserved a seat, near-duplicates are dropped with Maximal Marginal Relevance, and what comes back is complete definitions plus one bounded reference hop, cited as exact line ranges." width="100%" draggable="false"></picture>
+  <img src="assets/hybrid-retrieval-light.svg" alt="One question is asked four ways at once. Each angle is searched twice, once for semantic recall using local embeddings and once for lexical precision using a BM25 index. The two rankings are merged with Reciprocal Rank Fusion, every angle is reserved a seat, near-duplicates are dropped with Maximal Marginal Relevance, and what comes back is complete definitions plus one bounded reference hop, cited as exact line ranges." width="100%" draggable="false"></picture>
 
 Ask one question as four facets — primary flow, state or data, failure handling, tests. Each
 facet is retrieved independently from local embeddings **and** an incremental Okapi BM25 index,
