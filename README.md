@@ -3,7 +3,7 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/hero-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/hero-light.svg">
-  <img src="assets/hero-light.svg" alt="One repository, many repositories, documents and Slack stay live as they change. Smritikosh keeps them in sync incrementally, re-reading only the delta and leaving everything else untouched, then hands a coding agent a handful of exact source ranges &mdash; from either repository, from a document, or from a Slack thread &mdash; that never point at a stale line number. Keywords: incremental sync, always-fresh context, semantic code search, hybrid retrieval, agent memory, exact citations, local-first RAG." width="100%" draggable="false"></picture>
+  <img src="assets/hero-light.svg" alt="Git repositories, whether one monorepo or many, plus documents and Slack threads, stay live as they change, and the list keeps growing &mdash; more sources you can ask for are on the way. Smritikosh keeps them in sync incrementally, re-reading only the delta and leaving everything else untouched, then hands a coding agent a handful of exact source ranges &mdash; from either repository, from a document, or from a Slack thread &mdash; that never point at a stale line number. Keywords: incremental sync, always-fresh context, semantic code search, hybrid retrieval, agent memory, exact citations, local-first RAG." width="100%" draggable="false"></picture>
 
 # Your agents deserve _exact evidence._
 
@@ -65,32 +65,21 @@ Add `--watch` to keep it live while you work.
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/hybrid-retrieval-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/hybrid-retrieval-light.svg">
-  <img src="assets/hybrid-retrieval-light.svg" alt="One question is asked four ways at once. Each angle is searched twice, once for semantic recall using local embeddings and once for lexical precision using a BM25 index. The two rankings are merged with Reciprocal Rank Fusion, every angle is reserved a seat, near-duplicates are dropped with Maximal Marginal Relevance, and what comes back is complete definitions plus one bounded reference hop, cited as exact line ranges." width="100%" draggable="false"></picture>
+  <img src="assets/hybrid-retrieval-light.svg" alt="An agent asks one plain question, why can't users log in, and Smritikosh turns it into four angles: where login is decided, what it checks, where it says no, and the tests that cover it. Each angle runs down three retrieval channels: semantic recall over dense vectors, lexical precision over BM25, and a call-graph channel that is not yet implemented. The rankings are combined by Reciprocal Rank Fusion, Facet Reservation, and Maximal Marginal Relevance, and what survives comes back as a short list of exact line ranges such as auth/policy.py 176-193: whole definitions plus one hop further, with line numbers that stay true." width="100%" draggable="false"></picture>
 
-Ask one question as four facets — primary flow, state or data, failure handling, tests. Each
-facet is retrieved independently from local embeddings **and** an incremental Okapi BM25 index,
-so meaning and exact identifiers both land. Reciprocal Rank Fusion merges the rankings, facet
-reservation keeps every angle represented, Maximal Marginal Relevance drops near-duplicates,
-and survivors expand to complete definitions plus one bounded direct-reference hop.
+Ask one question — _why can't users log in?_ — and Smritikosh asks it four ways: where the
+decision is made, what it checks, where it says no, and the tests that cover it. Every angle
+runs down every channel: dense vectors for semantic recall, BM25 for lexical precision, call
+graph soon. Reciprocal Rank Fusion merges the rankings, Facet Reservation guarantees each
+angle a seat, Maximal Marginal Relevance drops near-duplicates, and survivors expand to
+complete definitions plus one direct-reference hop.
 
-Results arrive as [TOON](https://toonformat.dev) — columns declared once, then one row each:
+Results come back as a compact table that declares its columns once and then emits one row
+per hit — the same answer for a fraction of the tokens JSON would cost.
 
-```text
-queries[4]{id,query}:
-  Q1,authorization decision flow
-  Q2,authorization policy state and inputs
-  Q3,authorization failure handling
-  Q4,authorization tests
-search_results[3]{path,start_line,end_line,symbol,facets}:
-  src/auth/permissions.py,59,81,PermissionChecker,Q1|Q3
-  src/auth/policy.py,176,193,evaluate,Q1
-  tests/auth/test_policy.py,14,38,test_denies_expired_grant,Q4
-```
-
-`search` returns locations only. Copy a row straight into `chunks --range PATH START END` to
-rebuild that source with stable line numbers, repeating `--range` to read several spans in one
-process. `chunks PATH` outlines what a file defines; `--prose` switches either command to
-human-readable output.
+`search` returns locations, never contents. Copy a row into `chunks --range PATH START END`,
+repeating `--range` to read several spans in one process. `chunks PATH` outlines what a file
+defines; `--prose` switches either command to human-readable output.
 
 ## Why _incremental?_
 
@@ -110,7 +99,7 @@ it stays synchronized while you work.
 | --- | --- |
 | **One index, many sources** | Point `index` at each repository and docs tree in turn; they share one database and are searched as a single corpus, so an answer can cite two services and a design doc at once. |
 | **Agent-ready exploration** | `explore tools` teaches the model how to search, verify, cite, and stop. `search` finds candidates, `chunks` reads only the selected ranges. |
-| **Hybrid search** | Dense vectors for meaning, BM25 for identifiers, RRF for fusion, facet reservation for coverage, MMR for diversity. |
+| **Hybrid search** | Dense vectors for meaning, BM25 for identifiers, RRF for fusion, Facet Reservation for coverage, MMR for diversity. |
 | **Definition-aligned evidence** | Tree-sitter queries keep classes, functions, and methods whole, so a range is always a complete thought. |
 | **Δ incremental re-indexing** | SHA-256 file skipping, chunk-level memoization, stale-chunk retirement, optional `--watch`. |
 | **Local and read-only** | Source, metadata, vectors, BM25 postings, and incremental state live in one DuckDB file. Exploration never takes a write lock or touches the source tree. |
