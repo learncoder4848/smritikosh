@@ -23,7 +23,7 @@
     </style>
   </defs>
 
-  <rect x="0.5" y="0.5" width="959" height="329" rx="18" fill="#FFFFFF" stroke="#E7EAF0"/>
+  <rect x="0.5" y="0.5" width="959" height="329" rx="18" fill="#FFFFFF" stroke="#C3CCD9"/>
 
   <text class="mono cap" x="32" y="32" fill="#64748B">WHAT A SESSION COST</text>
   <text class="sans ink" x="32" y="62" font-size="14.5">Same question, same model. Reading three snippets is cheaper than reading the repo.</text>
@@ -35,7 +35,7 @@
 
   <text class="sans faint" x="30" y="196" font-size="10.5" transform="rotate(-90 30 196)" text-anchor="middle">recorded cost (USD)</text>
 
-  <g stroke="#F1F4F8" stroke-width="1">
+  <g stroke="#D9E0E9" stroke-width="1">
     <line x1="110" y1="262" x2="928" y2="262"/>
     <line x1="110" y1="213" x2="928" y2="213"/>
     <line x1="110" y1="164" x2="928" y2="164"/>
@@ -47,7 +47,7 @@
     <text x="100" y="168">$1.00</text>
     <text x="100" y="119">$1.50</text>
   </g>
-  <g stroke="#DDE3EC" stroke-width="1.5">
+  <g stroke="#B8C4D5" stroke-width="1.5">
     <line x1="110" y1="96" x2="110" y2="262"/>
     <line x1="110" y1="262" x2="928" y2="262"/>
   </g>
