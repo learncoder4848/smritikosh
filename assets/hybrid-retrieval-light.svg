@@ -33,7 +33,7 @@
     </style>
   </defs>
 
-  <rect x="0.5" y="0.5" width="959" height="263" rx="18" fill="#FFFFFF" stroke="#E7EAF0"/>
+  <rect x="0.5" y="0.5" width="959" height="263" rx="18" fill="#FFFFFF" stroke="#C3CCD9"/>
 
   <g class="mono cap">
     <text x="32"  y="30" fill="#64748B">ONE QUESTION, FOUR ANGLES</text>
@@ -43,7 +43,7 @@
   </g>
 
   <!-- ============ the agent, and the question it asks ============ -->
-  <rect x="32" y="52" width="194" height="48" rx="10" fill="#F7F9FC"/>
+  <rect x="32.5" y="52.5" width="193" height="47" rx="10" fill="#F7F9FC" stroke="#D3DBE6"/>
   <g transform="translate(56,76)">
     <line x1="0" y1="-20" x2="0" y2="-15" stroke="#0F172A" stroke-width="1.6" stroke-linecap="round"/>
     <circle class="beat" cx="0" cy="-22" r="2.4" fill="#059669"/>
@@ -57,22 +57,22 @@
   <text class="mono ink" x="80" y="80" font-size="10">why can&#8217;t users log in?</text>
 
   <g>
-    <rect x="32" y="112" width="194" height="28" rx="8" fill="#F7F9FC"/>
+    <rect x="32.5" y="112.5" width="193" height="27" rx="8" fill="#F7F9FC" stroke="#D3DBE6"/>
     <text class="mono faint" x="46" y="130" font-size="9">Q1</text>
     <text class="sans ink" x="68" y="130" font-size="10.5">where login is decided</text>
   </g>
   <g>
-    <rect x="32" y="144" width="194" height="28" rx="8" fill="#F7F9FC"/>
+    <rect x="32.5" y="144.5" width="193" height="27" rx="8" fill="#F7F9FC" stroke="#D3DBE6"/>
     <text class="mono faint" x="46" y="162" font-size="9">Q2</text>
     <text class="sans ink" x="68" y="162" font-size="10.5">what it checks</text>
   </g>
   <g>
-    <rect x="32" y="176" width="194" height="28" rx="8" fill="#F7F9FC"/>
+    <rect x="32.5" y="176.5" width="193" height="27" rx="8" fill="#F7F9FC" stroke="#D3DBE6"/>
     <text class="mono faint" x="46" y="194" font-size="9">Q3</text>
     <text class="sans ink" x="68" y="194" font-size="10.5">where it says no</text>
   </g>
   <g>
-    <rect x="32" y="208" width="194" height="28" rx="8" fill="#F7F9FC"/>
+    <rect x="32.5" y="208.5" width="193" height="27" rx="8" fill="#F7F9FC" stroke="#D3DBE6"/>
     <text class="mono faint" x="46" y="226" font-size="9">Q4</text>
     <text class="sans ink" x="68" y="226" font-size="10.5">tests that cover it</text>
   </g>
@@ -84,20 +84,20 @@
     <path class="flow" d="M226 144 C 244 144, 248 208, 266 208" stroke="#C3AEEF" style="animation-delay:.8s"/>
   </g>
 
-  <rect x="266.5" y="52.5" width="193" height="55" rx="12" fill="#FFFFFF" stroke="#E0E5EE"/>
+  <rect x="266.5" y="52.5" width="193" height="55" rx="12" fill="#FFFFFF" stroke="#BDC7D7"/>
   <circle cx="288" cy="72" r="4" fill="#2563EB"/>
   <text class="sans ink" x="300" y="76" font-size="12.5" font-weight="600">semantic recall</text>
   <text class="sans faint" x="288" y="94" font-size="9.5">dense vectors &#183; matches meaning</text>
 
-  <rect x="266.5" y="116.5" width="193" height="55" rx="12" fill="#FFFFFF" stroke="#E0E5EE"/>
+  <rect x="266.5" y="116.5" width="193" height="55" rx="12" fill="#FFFFFF" stroke="#BDC7D7"/>
   <circle cx="288" cy="136" r="4" fill="#B45309"/>
   <text class="sans ink" x="300" y="140" font-size="12.5" font-weight="600">lexical precision</text>
   <text class="sans faint" x="288" y="158" font-size="9.5">BM25 &#183; matches exact names</text>
 
-  <rect x="266.5" y="180.5" width="193" height="55" rx="12" fill="#FFFFFF" stroke="#E0E5EE"/>
+  <rect x="266.5" y="180.5" width="193" height="55" rx="12" fill="#FFFFFF" stroke="#BDC7D7"/>
   <circle cx="288" cy="200" r="4" fill="#7C3AED"/>
   <text class="sans ink" x="300" y="204" font-size="12.5" font-weight="600">call graph</text>
-  <rect x="404" y="192.5" width="36" height="15" rx="7.5" fill="none" stroke="#D7DEE8"/>
+  <rect x="404" y="192.5" width="36" height="15" rx="7.5" fill="none" stroke="#B2BFD1"/>
   <text class="mono faint" x="422" y="203" font-size="8" text-anchor="middle">soon</text>
   <text class="sans faint" x="288" y="222" font-size="9.5">callers and callees &#183; blast radius</text>
 
@@ -108,7 +108,7 @@
     <path class="flow" d="M460 208 C 478 208, 482 144, 500 144" stroke="#C3AEEF" style="animation-delay:1s"/>
   </g>
 
-  <rect x="500.5" y="52.5" width="193" height="183" rx="12" fill="#FFFFFF" stroke="#E0E5EE"/>
+  <rect x="500.5" y="52.5" width="193" height="183" rx="12" fill="#FFFFFF" stroke="#BDC7D7"/>
   <rect class="scan" x="501" y="53" width="192" height="3" rx="1.5" fill="#2563EB"/>
 
   <circle cx="519" cy="96" r="3" fill="#2563EB"/>
@@ -122,26 +122,26 @@
   <path class="flow2" d="M694 144 H 728" fill="none" stroke="#059669" stroke-opacity="0.7"
         stroke-width="1.6" stroke-linecap="round" stroke-dasharray="5 8" marker-end="url(#hr-arrow)"/>
 
-  <rect x="734.5" y="52.5" width="193" height="183" rx="12" fill="#F7F9FC" stroke="#EDF0F5"/>
+  <rect x="734.5" y="52.5" width="193" height="183" rx="12" fill="#F7F9FC" stroke="#C8D1DE"/>
 
   <rect x="750" y="70" width="3" height="12" rx="1.5" fill="#059669"/>
   <text class="sans ink" x="762" y="80" font-size="11" font-weight="600">only the lines that answer it</text>
 
   <g class="mono">
-    <rect x="750.5" y="94.5" width="161" height="23" rx="7" fill="#FFFFFF" stroke="#E4E9F0"/>
+    <rect x="750.5" y="94.5" width="161" height="23" rx="7" fill="#FFFFFF" stroke="#C0CAD9"/>
     <text x="762" y="109" font-size="9" fill="#334155">auth/policy.py</text>
     <text x="903" y="109" font-size="9" fill="#047857" text-anchor="end">176-193</text>
 
-    <rect x="750.5" y="122.5" width="161" height="23" rx="7" fill="#FFFFFF" stroke="#E4E9F0"/>
+    <rect x="750.5" y="122.5" width="161" height="23" rx="7" fill="#FFFFFF" stroke="#C0CAD9"/>
     <text x="762" y="137" font-size="9" fill="#334155">auth/session.py</text>
     <text x="903" y="137" font-size="9" fill="#047857" text-anchor="end">44-61</text>
 
-    <rect x="750.5" y="150.5" width="161" height="23" rx="7" fill="#FFFFFF" stroke="#E4E9F0"/>
+    <rect x="750.5" y="150.5" width="161" height="23" rx="7" fill="#FFFFFF" stroke="#C0CAD9"/>
     <text x="762" y="165" font-size="9" fill="#334155">tests/test_auth.py</text>
     <text x="903" y="165" font-size="9" fill="#047857" text-anchor="end">88-102</text>
   </g>
 
-  <line x1="750" y1="191" x2="912" y2="191" stroke="#E4E9F0" stroke-width="1"/>
+  <line x1="750" y1="191" x2="912" y2="191" stroke="#C0CAD9" stroke-width="1"/>
   <text class="sans faint" x="750" y="208" font-size="9.5">whole definitions &#183; one hop further</text>
   <text class="sans faint" x="750" y="224" font-size="9.5">line numbers that stay true</text>
 </svg>
