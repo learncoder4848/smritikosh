@@ -3,15 +3,15 @@
 
   <defs>
     <marker id="hw-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-      <path d="M0 0 L10 5 L0 10 z" fill="#059669"/>
+      <path d="M0 0 L10 5 L0 10 z" fill="#34D399"/>
     </marker>
     <style>
       .sans{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
       .mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
       .cap{font-size:10px;letter-spacing:.2em;font-weight:700}
-      .ink{fill:#0F172A}
-      .mut{fill:#64748B}
-      .faint{fill:#94A3B8}
+      .ink{fill:#E6EAF2}
+      .mut{fill:#9AA4BA}
+      .faint{fill:#77839C}
 
       .flow { animation: hw-dash 2.2s linear infinite; }
       @keyframes hw-dash { to { stroke-dashoffset:-22 } }
@@ -28,86 +28,86 @@
     </style>
   </defs>
 
-  <rect x="0.5" y="0.5" width="959" height="263" rx="18" fill="#FFFFFF" stroke="#C3CCD9"/>
+  <rect x="0.5" y="0.5" width="959" height="263" rx="18" fill="#0B1020" stroke="#26304A"/>
 
   <g class="mono cap">
-    <text x="32"  y="30" fill="#64748B">1  WALK THE TREE</text>
-    <text x="266" y="30" fill="#2563EB">2  KEEP WHOLE THOUGHTS</text>
-    <text x="500" y="30" fill="#64748B">3  INDEX THREE WAYS</text>
-    <text x="734" y="30" fill="#E11D48">4  RE-READ ONLY DELTA</text>
+    <text x="32"  y="30" fill="#9AA4BA">1  WALK THE TREE</text>
+    <text x="266" y="30" fill="#4C8DFF">2  KEEP WHOLE THOUGHTS</text>
+    <text x="500" y="30" fill="#9AA4BA">3  INDEX THREE WAYS</text>
+    <text x="734" y="30" fill="#FB7185">4  RE-READ ONLY DELTA</text>
   </g>
 
-  <rect x="32.5" y="48.5" width="193" height="187" rx="12" fill="#FFFFFF" stroke="#BDC7D7"/>
-  <rect class="scan" x="33" y="49" width="192" height="3" rx="1.5" fill="#2563EB"/>
+  <rect x="32.5" y="48.5" width="193" height="187" rx="12" fill="#0B1020" stroke="#33415C"/>
+  <rect class="scan" x="33" y="49" width="192" height="3" rx="1.5" fill="#4C8DFF"/>
 
   <g class="mono" font-size="10">
-    <text x="48" y="80" fill="#94A3B8">auth-svc/</text>
-    <text x="60" y="102" fill="#0F172A">src/policy.py</text>
-    <text x="60" y="122" fill="#0F172A">src/session.py</text>
-    <text x="60" y="142" fill="#CBD5E1" text-decoration="line-through">node_modules/</text>
-    <text x="60" y="162" fill="#0F172A">docs/auth.md</text>
+    <text x="48" y="80" fill="#77839C">auth-svc/</text>
+    <text x="60" y="102" fill="#E6EAF2">src/policy.py</text>
+    <text x="60" y="122" fill="#E6EAF2">src/session.py</text>
+    <text x="60" y="142" fill="#3A4660" text-decoration="line-through">node_modules/</text>
+    <text x="60" y="162" fill="#E6EAF2">docs/auth.md</text>
   </g>
   <text class="sans faint" x="48" y="196" font-size="10">gitignore + language router</text>
   <text class="sans faint" x="48" y="214" font-size="10">Python, TS, Java, Kotlin, MD</text>
 
-  <path class="flow" d="M226 142 H 258" fill="none" stroke="#059669" stroke-opacity="0.7"
+  <path class="flow" d="M226 142 H 258" fill="none" stroke="#34D399" stroke-opacity="0.7"
         stroke-width="1.6" stroke-linecap="round" stroke-dasharray="5 8" marker-end="url(#hw-arrow)"/>
 
-  <rect x="266.5" y="48.5" width="193" height="187" rx="12" fill="#FFFFFF" stroke="#BDC7D7"/>
+  <rect x="266.5" y="48.5" width="193" height="187" rx="12" fill="#0B1020" stroke="#33415C"/>
 
   <g>
-    <circle cx="286" cy="84" r="4" fill="#2563EB"/>
+    <circle cx="286" cy="84" r="4" fill="#4C8DFF"/>
     <text class="sans ink" x="298" y="88" font-size="12" font-weight="600">parse</text>
     <text class="sans faint" x="298" y="104" font-size="9.5">tree-sitter AST</text>
   </g>
   <g>
-    <circle cx="286" cy="132" r="4" fill="#2563EB"/>
+    <circle cx="286" cy="132" r="4" fill="#4C8DFF"/>
     <text class="sans ink" x="298" y="136" font-size="12" font-weight="600">extract</text>
     <text class="sans faint" x="298" y="152" font-size="9.5">classes, functions, methods</text>
   </g>
   <g>
-    <circle cx="286" cy="180" r="4" fill="#059669"/>
+    <circle cx="286" cy="180" r="4" fill="#34D399"/>
     <text class="sans ink" x="298" y="184" font-size="12" font-weight="600">chunk</text>
     <text class="sans faint" x="298" y="200" font-size="9.5">a range stays one definition</text>
   </g>
 
-  <path class="flow" d="M460 142 H 492" fill="none" stroke="#059669" stroke-opacity="0.7"
+  <path class="flow" d="M460 142 H 492" fill="none" stroke="#34D399" stroke-opacity="0.7"
         stroke-width="1.6" stroke-linecap="round" stroke-dasharray="5 8" marker-end="url(#hw-arrow)" style="animation-delay:.3s"/>
 
-  <rect x="500.5" y="48.5" width="193" height="187" rx="12" fill="#FFFFFF" stroke="#BDC7D7"/>
+  <rect x="500.5" y="48.5" width="193" height="187" rx="12" fill="#0B1020" stroke="#33415C"/>
 
-  <rect x="516.5" y="62.5" width="161" height="46" rx="10" fill="#F7F9FC" stroke="#D3DBE6"/>
-  <circle cx="536" cy="80" r="4" fill="#2563EB"/>
+  <rect x="516.5" y="62.5" width="161" height="46" rx="10" fill="#121A2E" stroke="#33415C"/>
+  <circle cx="536" cy="80" r="4" fill="#4C8DFF"/>
   <text class="sans ink" x="548" y="84" font-size="12" font-weight="600">meaning</text>
   <text class="sans faint" x="548" y="98" font-size="9">dense vectors</text>
 
-  <rect x="516.5" y="114.5" width="161" height="46" rx="10" fill="#F7F9FC" stroke="#D3DBE6"/>
-  <circle cx="536" cy="132" r="4" fill="#B45309"/>
+  <rect x="516.5" y="114.5" width="161" height="46" rx="10" fill="#121A2E" stroke="#33415C"/>
+  <circle cx="536" cy="132" r="4" fill="#F59E0B"/>
   <text class="sans ink" x="548" y="136" font-size="12" font-weight="600">names</text>
   <text class="sans faint" x="548" y="150" font-size="9">BM25 &#183; exact identifiers</text>
 
-  <rect x="516.5" y="166.5" width="161" height="46" rx="10" fill="#F7F9FC" stroke="#D3DBE6"/>
-  <circle cx="536" cy="184" r="4" fill="#7C3AED"/>
+  <rect x="516.5" y="166.5" width="161" height="46" rx="10" fill="#121A2E" stroke="#33415C"/>
+  <circle cx="536" cy="184" r="4" fill="#A78BFA"/>
   <text class="sans ink" x="548" y="188" font-size="12" font-weight="600">call graph</text>
   <text class="sans faint" x="548" y="202" font-size="9">soon &#183; callers and callees</text>
 
-  <path class="flow" d="M694 142 H 726" fill="none" stroke="#E11D48" stroke-opacity="0.65"
+  <path class="flow" d="M694 142 H 726" fill="none" stroke="#FB7185" stroke-opacity="0.7"
         stroke-width="1.6" stroke-linecap="round" stroke-dasharray="5 8" marker-end="url(#hw-arrow)" style="animation-delay:.6s"/>
 
-  <rect x="734.5" y="48.5" width="193" height="187" rx="12" fill="#F7F9FC" stroke="#C8D1DE"/>
+  <rect x="734.5" y="48.5" width="193" height="187" rx="12" fill="#121A2E" stroke="#33415C"/>
 
   <g class="mono" font-size="9.5">
-    <rect x="750.5" y="70.5" width="161" height="28" rx="7" fill="#FFFFFF" stroke="#C0CAD9"/>
-    <circle class="pulse" cx="766" cy="84" r="3.2" fill="#E11D48"/>
-    <text x="778" y="88" fill="#0F172A">policy.py  changed</text>
+    <rect x="750.5" y="70.5" width="161" height="28" rx="7" fill="#0B1020" stroke="#33415C"/>
+    <circle class="pulse" cx="766" cy="84" r="3.2" fill="#FB7185"/>
+    <text x="778" y="88" fill="#E6EAF2">policy.py  changed</text>
 
-    <rect x="750.5" y="106.5" width="161" height="28" rx="7" fill="#FFFFFF" stroke="#C0CAD9"/>
-    <circle cx="766" cy="120" r="3.2" fill="#CBD5E1"/>
-    <text x="778" y="124" fill="#94A3B8">session.py  skip</text>
+    <rect x="750.5" y="106.5" width="161" height="28" rx="7" fill="#0B1020" stroke="#33415C"/>
+    <circle cx="766" cy="120" r="3.2" fill="#3A4660"/>
+    <text x="778" y="124" fill="#77839C">session.py  skip</text>
 
-    <rect x="750.5" y="142.5" width="161" height="28" rx="7" fill="#FFFFFF" stroke="#C0CAD9"/>
-    <circle cx="766" cy="156" r="3.2" fill="#CBD5E1"/>
-    <text x="778" y="160" fill="#94A3B8">auth.md  skip</text>
+    <rect x="750.5" y="142.5" width="161" height="28" rx="7" fill="#0B1020" stroke="#33415C"/>
+    <circle cx="766" cy="156" r="3.2" fill="#3A4660"/>
+    <text x="778" y="160" fill="#77839C">auth.md  skip</text>
   </g>
 
   <text class="sans faint" x="750" y="196" font-size="9.5">hash gate &#183; chunk memoization</text>
