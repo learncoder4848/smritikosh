@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 264" width="960" height="264" role="img" aria-label="An agent asks one plain question &#8212; why can&apos;t users log in &#8212; and Smritikosh turns it into four angles: where login is decided, what it checks, where it says no, and the tests that cover it. Each angle runs down three retrieval channels: semantic recall over dense vectors, lexical precision over BM25, and a call-graph channel that is not yet implemented. The rankings are combined by Reciprocal Rank Fusion, Facet Reservation, and Maximal Marginal Relevance, and what survives comes back as a short list of exact line ranges such as auth/policy.py 176-193 &#8212; whole definitions plus one hop further, with line numbers that stay true.">
+  <title>Retrieval: one question, four angles, three channels, fused down to a handful of exact line ranges</title>
+
+  <defs>
+    <marker id="hr-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#34D399"/>
+    </marker>
+
+    <style>
+      .sans{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+      .mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+      .cap{font-size:10px;letter-spacing:.2em;font-weight:700}
+      .ink{fill:#E6EAF2}
+      .mut{fill:#9AA4BA}
+      .faint{fill:#77839C}
+
+      .flow  { animation: hr-dash 2.2s linear infinite; }
+      .flow2 { animation: hr-dash 1.7s linear infinite; }
+      @keyframes hr-dash { to { stroke-dashoffset:-22 } }
+
+      .scan  { animation: hr-scan 2.6s ease-in-out infinite; }
+      @keyframes hr-scan { 0%,100% { opacity:.3 } 50% { opacity:1 } }
+
+      .blink { animation: hr-blink 4.4s ease-in-out infinite; transform-box:fill-box; transform-origin:center; }
+      @keyframes hr-blink { 0%,88%,100% { transform:scaleY(1) } 92% { transform:scaleY(.12) } }
+
+      .beat  { animation: hr-beat 1.4s ease-in-out infinite; transform-box:fill-box; transform-origin:center; }
+      @keyframes hr-beat { 0%,100% { transform:scale(1) } 50% { transform:scale(1.35) } }
+
+      @media (prefers-reduced-motion: reduce) {
+        .flow,.flow2,.scan,.blink,.beat { animation:none }
+      }
+    </style>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="263" rx="18" fill="#0B1020" stroke="#26304A"/>
+
+  <g class="mono cap">
+    <text x="32"  y="30" fill="#9AA4BA">ONE QUESTION, FOUR ANGLES</text>
+    <text x="266" y="30" fill="#4C8DFF">THREE CHANNELS</text>
+    <text x="500" y="30" fill="#9AA4BA">FUSE AND SELECT</text>
+    <text x="734" y="30" fill="#34D399">EXACT EVIDENCE</text>
+  </g>
+
+  <!-- ============ the agent, and the question it asks ============ -->
+  <rect x="32" y="52" width="194" height="48" rx="10" fill="#131A2E"/>
+  <g transform="translate(56,76)">
+    <line x1="0" y1="-20" x2="0" y2="-15" stroke="#9AA4BA" stroke-width="1.6" stroke-linecap="round"/>
+    <circle class="beat" cx="0" cy="-22" r="2.4" fill="#34D399"/>
+    <rect x="-15" y="-14" width="30" height="26" rx="8" fill="#3A5B96"/>
+    <rect x="-11" y="-9" width="22" height="16" rx="5" fill="#0B1020"/>
+    <g fill="#34D399" class="blink">
+      <circle cx="-4.5" cy="-1.5" r="1.7"/>
+      <circle cx="4.5"  cy="-1.5" r="1.7"/>
+    </g>
+  </g>
+  <text class="mono ink" x="80" y="80" font-size="10">why can&#8217;t users log in?</text>
+
+  <g>
+    <rect x="32" y="112" width="194" height="28" rx="8" fill="#131A2E"/>
+    <text class="mono faint" x="46" y="130" font-size="9">Q1</text>
+    <text class="sans ink" x="68" y="130" font-size="10.5">where login is decided</text>
+  </g>
+  <g>
+    <rect x="32" y="144" width="194" height="28" rx="8" fill="#131A2E"/>
+    <text class="mono faint" x="46" y="162" font-size="9">Q2</text>
+    <text class="sans ink" x="68" y="162" font-size="10.5">what it checks</text>
+  </g>
+  <g>
+    <rect x="32" y="176" width="194" height="28" rx="8" fill="#131A2E"/>
+    <text class="mono faint" x="46" y="194" font-size="9">Q3</text>
+    <text class="sans ink" x="68" y="194" font-size="10.5">where it says no</text>
+  </g>
+  <g>
+    <rect x="32" y="208" width="194" height="28" rx="8" fill="#131A2E"/>
+    <text class="mono faint" x="46" y="226" font-size="9">Q4</text>
+    <text class="sans ink" x="68" y="226" font-size="10.5">tests that cover it</text>
+  </g>
+
+  <!-- ============ every facet down all three channels ============ -->
+  <g fill="none" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 7">
+    <path class="flow" d="M226 144 C 244 144, 248 80, 266 80"  stroke="#2E4E85"/>
+    <path class="flow" d="M226 144 H 266" stroke="#6B5423" style="animation-delay:.4s"/>
+    <path class="flow" d="M226 144 C 244 144, 248 208, 266 208" stroke="#4B3A75" style="animation-delay:.8s"/>
+  </g>
+
+  <rect x="266.5" y="52.5" width="193" height="55" rx="12" fill="#111A2E" stroke="#2B3653"/>
+  <circle cx="288" cy="72" r="4" fill="#4C8DFF"/>
+  <text class="sans ink" x="300" y="76" font-size="12.5" font-weight="600">semantic recall</text>
+  <text class="sans faint" x="288" y="94" font-size="9.5">dense vectors &#183; matches meaning</text>
+
+  <rect x="266.5" y="116.5" width="193" height="55" rx="12" fill="#111A2E" stroke="#2B3653"/>
+  <circle cx="288" cy="136" r="4" fill="#FBBF24"/>
+  <text class="sans ink" x="300" y="140" font-size="12.5" font-weight="600">lexical precision</text>
+  <text class="sans faint" x="288" y="158" font-size="9.5">BM25 &#183; matches exact names</text>
+
+  <rect x="266.5" y="180.5" width="193" height="55" rx="12" fill="#111A2E" stroke="#2B3653"/>
+  <circle cx="288" cy="200" r="4" fill="#A78BFA"/>
+  <text class="sans ink" x="300" y="204" font-size="12.5" font-weight="600">call graph</text>
+  <rect x="404" y="192.5" width="36" height="15" rx="7.5" fill="none" stroke="#33405C"/>
+  <text class="mono faint" x="422" y="203" font-size="8" text-anchor="middle">soon</text>
+  <text class="sans faint" x="288" y="222" font-size="9.5">callers and callees &#183; blast radius</text>
+
+  <!-- ============ fusion and selection ============ -->
+  <g fill="none" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 7">
+    <path class="flow" d="M460 80 C 478 80, 482 144, 500 144"  stroke="#2E4E85" style="animation-delay:.2s"/>
+    <path class="flow" d="M460 144 H 500" stroke="#6B5423" style="animation-delay:.6s"/>
+    <path class="flow" d="M460 208 C 478 208, 482 144, 500 144" stroke="#4B3A75" style="animation-delay:1s"/>
+  </g>
+
+  <rect x="500.5" y="52.5" width="193" height="183" rx="12" fill="#111A2E" stroke="#2B3653"/>
+  <rect class="scan" x="501" y="53" width="192" height="3" rx="1.5" fill="#4C8DFF"/>
+
+  <circle cx="519" cy="96" r="3" fill="#4C8DFF"/>
+  <text class="sans ink" x="532" y="100" font-size="10.5">Reciprocal Rank Fusion</text>
+  <circle cx="519" cy="140" r="3" fill="#4C8DFF"/>
+  <text class="sans ink" x="532" y="144" font-size="10.5">Facet Reservation</text>
+  <circle cx="519" cy="184" r="3" fill="#4C8DFF"/>
+  <text class="sans ink" x="532" y="188" font-size="10.5">Maximal Marginal Relevance</text>
+
+  <!-- ============ what the agent gets back ============ -->
+  <path class="flow2" d="M694 144 H 728" fill="none" stroke="#34D399" stroke-opacity="0.7"
+        stroke-width="1.6" stroke-linecap="round" stroke-dasharray="5 8" marker-end="url(#hr-arrow)"/>
+
+  <rect x="734.5" y="52.5" width="193" height="183" rx="12" fill="#101728" stroke="#232D46"/>
+
+  <rect x="750" y="70" width="3" height="12" rx="1.5" fill="#34D399"/>
+  <text class="sans ink" x="762" y="80" font-size="11" font-weight="600">only the lines that answer it</text>
+
+  <g class="mono">
+    <rect x="750.5" y="94.5" width="161" height="23" rx="7" fill="#0D1424" stroke="#202B44"/>
+    <text x="762" y="109" font-size="9" fill="#C7D0E2">auth/policy.py</text>
+    <text x="903" y="109" font-size="9" fill="#34D399" text-anchor="end">176-193</text>
+
+    <rect x="750.5" y="122.5" width="161" height="23" rx="7" fill="#0D1424" stroke="#202B44"/>
+    <text x="762" y="137" font-size="9" fill="#C7D0E2">auth/session.py</text>
+    <text x="903" y="137" font-size="9" fill="#34D399" text-anchor="end">44-61</text>
+
+    <rect x="750.5" y="150.5" width="161" height="23" rx="7" fill="#0D1424" stroke="#202B44"/>
+    <text x="762" y="165" font-size="9" fill="#C7D0E2">tests/test_auth.py</text>
+    <text x="903" y="165" font-size="9" fill="#34D399" text-anchor="end">88-102</text>
+  </g>
+
+  <line x1="750" y1="191" x2="912" y2="191" stroke="#242E48" stroke-width="1"/>
+  <text class="sans faint" x="750" y="208" font-size="9.5">whole definitions &#183; one hop further</text>
+  <text class="sans faint" x="750" y="224" font-size="9.5">line numbers that stay true</text>
+</svg>
