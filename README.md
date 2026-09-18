@@ -29,50 +29,36 @@ API keys, hosted vector databases, or sending source data off-device.
 
 ## Get started
 
-```bash
-pip install smritikosh
-```
-
-Index a repository once. Every later run touches only what changed.
+No Python on the machine? `uv` brings its own.
 
 ```bash
-# 1. Build the local index. Run it once per repository or docs tree —
-#    everything pointed at the same --db-path is searched together.
-smritikosh index /path/to/repository --db-path smritikosh.duckdb
-smritikosh index /path/to/another-service --db-path smritikosh.duckdb
-
-# 2. Let the agent discover the workflow, syntax, and answer contract.
-smritikosh explore tools --toon
-
-# 3. Search one question through distinct facets.
-smritikosh explore search \
-  "authorization decision flow" \
-  "authorization policy state and inputs" \
-  "authorization failure handling" \
-  "authorization tests" \
-  --max-results 12 \
-  --db-path smritikosh.duckdb
-
-# 4. Read only the ranges worth reading.
-smritikosh explore chunks \
-  --range src/auth/permissions.py 59 81 \
-  --range tests/auth/test_policy.py 14 38 \
-  --db-path smritikosh.duckdb
+curl -LsSf https://astral.sh/uv/install.sh | sh   # Windows: docs.astral.sh/uv
+uv tool install smritikosh
 ```
 
-The default embedder — `nomic-ai/CodeRankEmbed` — runs locally through ONNX Runtime, so the
-only network access is a one-time model download.
+Or `pipx install smritikosh`. Where the command is missing from PATH, `python -m smritikosh`
+is the same thing.
 
-> **Driving an AI coding agent?**
-> `explore tools` carries the workflow, search standards, and citation contract, so the
-> instruction you write stays four lines long:
->
-> ```text
-> Question: {{QUESTION}}
-> Use only the Smritikosh exploration CLI.
-> First run exactly: smritikosh explore tools --toon
-> Pass --db-path {{DATABASE_PATH}} to every subsequent command, and follow all guidance it returns.
-> ```
+**Index whatever the agent should know.** It all lands in one `./smritikosh.duckdb` and is
+searched as a single corpus.
+
+```bash
+smritikosh index ./auth-svc        # one repository, or fifty — repeat per repo
+smritikosh index ./docs            # Markdown and MDX beside the code
+smritikosh index ./slack-export    # Slack threads and .docx — soon
+```
+
+**Then let the agent explore.** `explore tools` hands it the workflow and the citation
+contract, `search` returns locations, `chunks` reads only those ranges.
+
+```bash
+smritikosh explore tools
+smritikosh explore search "authorization decision flow" "authorization tests"
+smritikosh explore chunks --range src/auth/policy.py 176 193
+```
+
+Re-run `index` anytime — unchanged files are skipped, so only the Δ costs anything.
+Add `--watch` to keep it live while you work.
 
 ## Retrieval — _built for agents, not for humans scrolling_
 
