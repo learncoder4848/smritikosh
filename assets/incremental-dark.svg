@@ -6,9 +6,9 @@
       .sans{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
       .mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
       .cap{font-size:10px;letter-spacing:.2em;font-weight:700}
-      .ink{fill:#0F172A}
-      .mut{fill:#64748B}
-      .faint{fill:#94A3B8}
+      .ink{fill:#E6EAF2}
+      .mut{fill:#9AA4BA}
+      .faint{fill:#77839C}
 
       .changed { animation: sk-changed 2.2s ease-in-out infinite; }
       @keyframes sk-changed { 0%,100% { opacity:1 } 50% { opacity:.38 } }
@@ -22,14 +22,14 @@
     </style>
   </defs>
 
-  <rect x="0.5" y="0.5" width="959" height="263" rx="18" fill="#FFFFFF" stroke="#E7EAF0"/>
+  <rect x="0.5" y="0.5" width="959" height="263" rx="18" fill="#0B1020" stroke="#26304A"/>
 
-  <text class="mono cap" x="32" y="32" fill="#64748B">EVERY RUN AFTER THE FIRST</text>
+  <text class="mono cap" x="32" y="32" fill="#9AA4BA">EVERY RUN AFTER THE FIRST</text>
   <text class="sans ink" x="32" y="62" font-size="14.5">Three files changed. Only those three are read again.</text>
-  <text class="mono" x="928" y="62" font-size="11" fill="#E11D48" text-anchor="end">3 of 72</text>
+  <text class="mono" x="928" y="62" font-size="11" fill="#FB7185" text-anchor="end">3 of 72</text>
 
   <!-- the corpus: one tile per file, three of them pulsing as the part that changed -->
-  <g fill="#DBEAFE">
+  <g fill="#25406E">
     <rect x="32"  y="88" width="42" height="18" rx="3"/>
     <rect x="82"  y="88" width="42" height="18" rx="3"/>
     <rect x="132" y="88" width="42" height="18" rx="3"/>
@@ -51,7 +51,7 @@
 
     <rect x="32"  y="114" width="42" height="18" rx="3"/>
     <rect x="82"  y="114" width="42" height="18" rx="3"/>
-    <rect class="changed" fill="#FDA4AF" x="132" y="114" width="42" height="18" rx="3"/>
+    <rect class="changed" fill="#9F1239" x="132" y="114" width="42" height="18" rx="3"/>
     <rect x="182" y="114" width="42" height="18" rx="3"/>
     <rect x="232" y="114" width="42" height="18" rx="3"/>
     <rect x="282" y="114" width="42" height="18" rx="3"/>
@@ -74,7 +74,7 @@
     <rect x="182" y="140" width="42" height="18" rx="3"/>
     <rect x="232" y="140" width="42" height="18" rx="3"/>
     <rect x="282" y="140" width="42" height="18" rx="3"/>
-    <rect class="changed" fill="#FDA4AF" x="332" y="140" width="42" height="18" rx="3" style="animation-delay:.45s"/>
+    <rect class="changed" fill="#9F1239" x="332" y="140" width="42" height="18" rx="3" style="animation-delay:.45s"/>
     <rect x="382" y="140" width="42" height="18" rx="3"/>
     <rect x="432" y="140" width="42" height="18" rx="3"/>
     <rect x="482" y="140" width="42" height="18" rx="3"/>
@@ -98,7 +98,7 @@
     <rect x="432" y="166" width="42" height="18" rx="3"/>
     <rect x="482" y="166" width="42" height="18" rx="3"/>
     <rect x="532" y="166" width="42" height="18" rx="3"/>
-    <rect class="changed" fill="#FDA4AF" x="582" y="166" width="42" height="18" rx="3" style="animation-delay:.9s"/>
+    <rect class="changed" fill="#9F1239" x="582" y="166" width="42" height="18" rx="3" style="animation-delay:.9s"/>
     <rect x="632" y="166" width="42" height="18" rx="3"/>
     <rect x="682" y="166" width="42" height="18" rx="3"/>
     <rect x="732" y="166" width="42" height="18" rx="3"/>
@@ -107,13 +107,13 @@
     <rect x="882" y="166" width="42" height="18" rx="3"/>
   </g>
 
-  <rect x="32" y="205" width="12" height="12" rx="3" fill="#DBEAFE"/>
+  <rect x="32" y="205" width="12" height="12" rx="3" fill="#25406E"/>
   <text class="sans mut" x="52" y="215" font-size="11">recognised as unchanged, skipped instantly</text>
 
-  <rect x="300" y="205" width="12" height="12" rx="3" fill="#FDA4AF"/>
+  <rect x="300" y="205" width="12" height="12" rx="3" fill="#9F1239"/>
   <text class="sans mut" x="320" y="215" font-size="11">changed, read and re-embedded</text>
 
-  <rect x="608" y="198" width="320" height="26" rx="8" fill="#F7F9FC"/>
-  <text class="mono ink" x="622" y="215" font-size="11">smritikosh index . --watch<tspan class="type" fill="#2563EB">_</tspan></text>
+  <rect x="608" y="198" width="320" height="26" rx="8" fill="#131A2E"/>
+  <text class="mono ink" x="622" y="215" font-size="11">smritikosh index . --watch<tspan class="type" fill="#4C8DFF">_</tspan></text>
   <text class="sans faint" x="608" y="242" font-size="10">leave it running and the index never goes stale</text>
 </svg>
