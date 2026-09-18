@@ -1,0 +1,169 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" width="960" height="420" role="img" aria-label="How Smritikosh works, end to end. Step 1, walk the tree: discovery respects gitignore and a language router sends each remaining file to the right parser, covering Python, TypeScript, JavaScript, Java, Kotlin, Markdown and a few structured formats. Step 2, keep whole thoughts: parse the tree-sitter AST, extract classes, functions and methods, then chunk so a range is always one complete definition rather than the tail of one function and the head of the next. Step 3, index three ways: the same chunks become dense vectors for meaning and BM25 postings for exact names, with a call-graph channel of callers and callees still to come. Step 4, re-read only the delta: a content hash decides whether a file is opened at all, so a changed file is re-read while unchanged ones are skipped and their chunks keep the vectors they already have. Step 5, persist: chunks and metadata, dense vectors, BM25 postings, and the hash and memo state all live in one local smritikosh.duckdb file. Search reads that same file back: a question is fused across the rankings, coverage is kept and near-duplicates dropped, survivors expand to whole definitions plus one reference hop, and the answer comes back as an exact path with a start and end line such as policy.py 176 to 193, never the file body.">
+  <title>Indexing walks the tree into one DuckDB file; search reads that same file back as exact line ranges</title>
+
+  <defs>
+    <marker id="hw-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#34D399"/>
+    </marker>
+    <marker id="hw-arrow-rose" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#FB7185"/>
+    </marker>
+    <style>
+      .sans{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+      .mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+      .cap{font-size:10px;letter-spacing:.2em;font-weight:700}
+      .ink{fill:#E6EAF2}
+      .mut{fill:#9AA4BA}
+      .faint{fill:#77839C}
+
+      .flow { animation: hw-dash 2.2s linear infinite; }
+      @keyframes hw-dash { to { stroke-dashoffset:-22 } }
+
+      .pulse { animation: hw-pulse 1.8s ease-in-out infinite; transform-box:fill-box; transform-origin:center; }
+      @keyframes hw-pulse { 0%,100% { transform:scale(1); opacity:1 } 50% { transform:scale(1.25); opacity:.55 } }
+
+      .scan { animation: hw-scan 2.8s ease-in-out infinite; }
+      @keyframes hw-scan { 0%,100% { opacity:.25 } 50% { opacity:1 } }
+
+      @media (prefers-reduced-motion: reduce) {
+        .flow,.pulse,.scan { animation:none }
+      }
+    </style>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="419" rx="18" fill="#0B1020" stroke="#26304A"/>
+
+  <g class="mono cap">
+    <text x="32"  y="30" fill="#9AA4BA">1  WALK THE TREE</text>
+    <text x="266" y="30" fill="#4C8DFF">2  KEEP WHOLE THOUGHTS</text>
+    <text x="500" y="30" fill="#9AA4BA">3  INDEX THREE WAYS</text>
+    <text x="734" y="30" fill="#FB7185">4  RE-READ ONLY &#916;</text>
+  </g>
+
+  <!-- ============ 1 walk the tree ============ -->
+  <rect x="32.5" y="48.5" width="193" height="172" rx="12" fill="#0B1020" stroke="#33415C"/>
+  <rect class="scan" x="33" y="49" width="192" height="3" rx="1.5" fill="#4C8DFF"/>
+
+  <g class="mono" font-size="10">
+    <text x="48" y="78" fill="#77839C">auth-svc/</text>
+    <text x="60" y="100" fill="#E6EAF2">src/policy.py</text>
+    <text x="60" y="120" fill="#E6EAF2">src/session.py</text>
+    <text x="60" y="140" fill="#3A4660" text-decoration="line-through">node_modules/</text>
+    <text x="60" y="160" fill="#E6EAF2">docs/auth.md</text>
+  </g>
+  <text class="sans faint" x="48" y="190" font-size="10">gitignore, then the language router</text>
+  <text class="sans faint" x="48" y="208" font-size="10">Python, TS, JS, Java, Kotlin, MD</text>
+
+  <path class="flow" d="M226 134 H 258" fill="none" stroke="#34D399" stroke-opacity="0.7"
+        stroke-width="1.6" stroke-linecap="round" stroke-dasharray="5 8" marker-end="url(#hw-arrow)"/>
+
+  <!-- ============ 2 keep whole thoughts ============ -->
+  <rect x="266.5" y="48.5" width="193" height="172" rx="12" fill="#0B1020" stroke="#33415C"/>
+
+  <circle cx="286" cy="82" r="4" fill="#4C8DFF"/>
+  <text class="sans ink" x="298" y="86" font-size="12" font-weight="600">parse</text>
+  <text class="sans faint" x="298" y="102" font-size="9.5">tree-sitter AST</text>
+
+  <circle cx="286" cy="132" r="4" fill="#4C8DFF"/>
+  <text class="sans ink" x="298" y="136" font-size="12" font-weight="600">extract</text>
+  <text class="sans faint" x="298" y="152" font-size="9.5">classes, functions, methods</text>
+
+  <circle cx="286" cy="182" r="4" fill="#34D399"/>
+  <text class="sans ink" x="298" y="186" font-size="12" font-weight="600">chunk</text>
+  <text class="sans faint" x="298" y="202" font-size="9.5">never half of two functions</text>
+
+  <path class="flow" d="M460 134 H 492" fill="none" stroke="#34D399" stroke-opacity="0.7"
+        stroke-width="1.6" stroke-linecap="round" stroke-dasharray="5 8" marker-end="url(#hw-arrow)" style="animation-delay:.3s"/>
+
+  <!-- ============ 3 index three ways ============ -->
+  <rect x="500.5" y="48.5" width="193" height="172" rx="12" fill="#0B1020" stroke="#33415C"/>
+
+  <rect x="516.5" y="58.5" width="161" height="44" rx="10" fill="#121A2E" stroke="#33415C"/>
+  <circle cx="536" cy="80" r="4" fill="#4C8DFF"/>
+  <text class="sans ink" x="548" y="84" font-size="12" font-weight="600">meaning</text>
+  <text class="sans faint" x="548" y="97" font-size="9">dense vectors</text>
+
+  <rect x="516.5" y="110.5" width="161" height="44" rx="10" fill="#121A2E" stroke="#33415C"/>
+  <circle cx="536" cy="132" r="4" fill="#F59E0B"/>
+  <text class="sans ink" x="548" y="136" font-size="12" font-weight="600">names</text>
+  <text class="sans faint" x="548" y="149" font-size="9">BM25 &#183; exact identifiers</text>
+
+  <rect x="516.5" y="162.5" width="161" height="44" rx="10" fill="#121A2E" stroke="#33415C"/>
+  <circle cx="536" cy="184" r="4" fill="#A78BFA"/>
+  <text class="sans ink" x="548" y="188" font-size="12" font-weight="600">call graph</text>
+  <text class="sans faint" x="548" y="201" font-size="9">soon &#183; callers and callees</text>
+
+  <path class="flow" d="M694 134 H 726" fill="none" stroke="#FB7185" stroke-opacity="0.7"
+        stroke-width="1.6" stroke-linecap="round" stroke-dasharray="5 8" marker-end="url(#hw-arrow-rose)" style="animation-delay:.6s"/>
+
+  <!-- ============ 4 re-read only the delta ============ -->
+  <rect x="734.5" y="48.5" width="193" height="172" rx="12" fill="#121A2E" stroke="#33415C"/>
+
+  <g class="mono" font-size="9.5">
+    <rect x="750.5" y="66.5" width="161" height="28" rx="7" fill="#0B1020" stroke="#33415C"/>
+    <circle class="pulse" cx="766" cy="80" r="3.2" fill="#FB7185"/>
+    <text x="778" y="84" fill="#E6EAF2">policy.py  changed</text>
+
+    <rect x="750.5" y="102.5" width="161" height="28" rx="7" fill="#0B1020" stroke="#33415C"/>
+    <circle cx="766" cy="116" r="3.2" fill="#3A4660"/>
+    <text x="778" y="120" fill="#77839C">session.py  skip</text>
+
+    <rect x="750.5" y="138.5" width="161" height="28" rx="7" fill="#0B1020" stroke="#33415C"/>
+    <circle cx="766" cy="152" r="3.2" fill="#3A4660"/>
+    <text x="778" y="156" fill="#77839C">auth.md  skip</text>
+  </g>
+
+  <text class="sans faint" x="750" y="190" font-size="9.5">a content hash opens the file, or not</text>
+  <text class="sans faint" x="750" y="208" font-size="9.5">skipped chunks keep their vectors</text>
+
+  <!-- ============ 5 persist ============ -->
+  <path class="flow" d="M480 228 V 256" fill="none" stroke="#34D399" stroke-opacity="0.7"
+        stroke-width="1.6" stroke-linecap="round" stroke-dasharray="5 8" marker-end="url(#hw-arrow)" style="animation-delay:.9s"/>
+
+  <text class="mono cap" x="32" y="252" fill="#34D399">5  PERSIST &#183; ONE DUCKDB FILE</text>
+
+  <rect x="32.5" y="264.5" width="895" height="48" rx="12" fill="#0F1F1C" stroke="#14532D"/>
+  <text class="mono ink" x="48" y="294" font-size="11" font-weight="600">smritikosh.duckdb</text>
+
+  <rect x="214.5" y="276.5" width="148" height="24" rx="7" fill="#0B1020" stroke="#33415C"/>
+  <text class="sans ink" x="226" y="293" font-size="11">chunks + metadata</text>
+
+  <rect x="374.5" y="276.5" width="148" height="24" rx="7" fill="#0B1020" stroke="#33415C"/>
+  <text class="sans ink" x="386" y="293" font-size="11">dense vectors</text>
+
+  <rect x="534.5" y="276.5" width="168" height="24" rx="7" fill="#0B1020" stroke="#33415C"/>
+  <text class="sans ink" x="546" y="293" font-size="11">BM25 postings</text>
+
+  <rect x="714.5" y="276.5" width="196" height="24" rx="7" fill="#0B1020" stroke="#33415C"/>
+  <text class="sans ink" x="726" y="293" font-size="11">hash + memo state</text>
+
+  <!-- ============ search reads it back ============ -->
+  <path class="flow" d="M480 316 V 346" fill="none" stroke="#34D399" stroke-opacity="0.7"
+        stroke-width="1.6" stroke-linecap="round" stroke-dasharray="5 8" marker-end="url(#hw-arrow)" style="animation-delay:1.2s"/>
+
+  <text class="mono cap" x="32" y="340" fill="#9AA4BA">SEARCH &#183; READS THAT SAME FILE</text>
+  <text class="sans faint" x="928" y="340" font-size="9.5" text-anchor="end">line ranges only &#8212; never the file body</text>
+
+  <rect x="32.5" y="354.5" width="895" height="50" rx="12" fill="#0B1020" stroke="#33415C"/>
+
+  <rect x="48.5" y="365.5" width="196" height="28" rx="8" fill="#121A2E" stroke="#33415C"/>
+  <text class="mono ink" x="62" y="383" font-size="9.5">why can&#8217;t users log in?</text>
+
+  <path class="flow" d="M254 379 H 274" fill="none" stroke="#34D399" stroke-opacity="0.7"
+        stroke-width="1.6" stroke-linecap="round" stroke-dasharray="5 8" marker-end="url(#hw-arrow)"/>
+
+  <rect x="282.5" y="365.5" width="206" height="28" rx="8" fill="#121A2E" stroke="#33415C"/>
+  <text class="sans ink" x="296" y="383" font-size="10.5">fuse &#183; cover &#183; de-duplicate</text>
+
+  <path class="flow" d="M498 379 H 518" fill="none" stroke="#34D399" stroke-opacity="0.7"
+        stroke-width="1.6" stroke-linecap="round" stroke-dasharray="5 8" marker-end="url(#hw-arrow)" style="animation-delay:.3s"/>
+
+  <rect x="526.5" y="365.5" width="206" height="28" rx="8" fill="#121A2E" stroke="#33415C"/>
+  <text class="sans ink" x="540" y="383" font-size="10.5">expand to whole definitions</text>
+
+  <path class="flow" d="M742 379 H 762" fill="none" stroke="#34D399" stroke-opacity="0.7"
+        stroke-width="1.6" stroke-linecap="round" stroke-dasharray="5 8" marker-end="url(#hw-arrow)" style="animation-delay:.6s"/>
+
+  <rect x="770.5" y="365.5" width="141" height="28" rx="8" fill="#0B1020" stroke="#34D399"/>
+  <text class="mono" x="784" y="383" font-size="9.5" fill="#34D399">policy.py 176&#8211;193</text>
+</svg>
