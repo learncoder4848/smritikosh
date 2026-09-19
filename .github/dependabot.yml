@@ -23,3 +23,11 @@ updates:
       prefix: "chore |"
     labels:
       - dependencies
+    ignore:
+      # The <1.0 pin in pyproject.toml is deliberate: 1.x fetches grammar
+      # binaries at first use instead of bundling them in the wheel, which
+      # breaks the offline, deterministic install. No test would catch the
+      # regression, since CI has a network. Revisit only if 1.x starts
+      # bundling again.
+      - dependency-name: tree-sitter-language-pack
+        update-types: ["version-update:semver-major"]
