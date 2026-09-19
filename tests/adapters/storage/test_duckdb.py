@@ -336,3 +336,11 @@ def test_clear_caches_does_not_touch_nodes_table(adapter: DuckDBAdapter) -> None
 
     assert adapter.get_chunk_ids_for_file("a/b.py") == {"c1"}  # nodes untouched
     assert adapter.get_all_file_paths() == set()  # hashes cleared
+
+
+def test_clear_nodes_removes_only_source_nodes(adapter: DuckDBAdapter) -> None:
+    adapter.upsert_chunk_nodes([_chunk("c1")])
+
+    adapter.clear_nodes()
+
+    assert adapter.get_chunk_ids_for_file("a/b.py") == set()
