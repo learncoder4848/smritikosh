@@ -69,8 +69,19 @@ def test_should_build_stable_content_addressed_chunk_ids() -> None:
     first = build_chunk("a.py", text, "function", 1, 1)
     second = build_chunk("a.py", text, "function", 1, 1)
 
-    assert first.id == second.id == expected_hash[:16] == chunk_id(text) == cid(text)
+    assert first.id == second.id == chunk_id("a.py", text, 1, 1)
+    assert first.id == cid(text, "a.py")
     assert first.content_hash == expected_hash == content_hash(text)
+
+
+def test_should_keep_identical_text_in_different_files_distinct() -> None:
+    text = "def foo(): pass"
+
+    first = build_chunk("a.py", text, "function", 1, 1)
+    second = build_chunk("b.py", text, "function", 1, 1)
+
+    assert first.id != second.id
+    assert first.content_hash == second.content_hash
 
 
 def test_should_not_duplicate_init_text_when_extending_class_span() -> None:
@@ -104,7 +115,7 @@ def test_should_make_node_group_and_text_chunks_via_build_chunk() -> None:
     (text_chunk,) = make_text_chunks(p, "hello", "regex", 1, 1)
 
     assert node_chunk.id == cid("X = 1")
-    assert group_chunk.id == cid("X = 1\nY = 2")
+    assert group_chunk.id == cid("X = 1\nY = 2", start_line=1, end_line=2)
     assert text_chunk.id == cid("hello")
     assert node_chunk.start_line == 1
     assert group_chunk.end_line >= group_chunk.start_line
