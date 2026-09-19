@@ -336,11 +336,17 @@ class DuckDBSourceReader:
         ).fetchall()
         return [self._to_chunk(row) for row in rows]
 
-    def get_chunks_by_ids(self, chunk_ids: list[str]) -> list[IndexedChunk]:
-        """Return indexed chunks in the same order as the supplied ids."""
+    def get_chunks_by_ids(self, chunk_ids: list[str]) -> dict[str, IndexedChunk]:
+        """Look up indexed chunks by id, keyed by the id that found them.
+
+        An id with no stored chunk is absent from the mapping.  Returning a
+        list would have made that miss invisible: a ranked caller zipping
+        scores against a silently shorter result mis-pairs every entry after
+        the gap.  Ordering is the caller's — it already holds the ranking.
+        """
         if not chunk_ids:
-            return []
-        placeholders: str = ", ".join("?" for _ in chunk_ids)
+            return {}
+        placeholders = ", ".join("?" for _ in chunk_ids)
         rows: list[tuple[str, str | None, str, str]] = self._connection.execute(
             f"""
             SELECT id, name, path, metadata
@@ -349,8 +355,7 @@ class DuckDBSourceReader:
             """,  # noqa: S608
             chunk_ids,
         ).fetchall()
-        chunks: dict[str, IndexedChunk] = {row[0]: self._to_chunk(row) for row in rows}
-        return [chunks[chunk_id] for chunk_id in chunk_ids if chunk_id in chunks]
+        return {row[0]: self._to_chunk(row) for row in rows}
 
     def get_outline(self, path: str) -> list[OutlineEntry]:
         """List what one indexed path defines, without any of its source.
