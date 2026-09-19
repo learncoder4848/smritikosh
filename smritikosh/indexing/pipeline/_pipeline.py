@@ -197,7 +197,9 @@ def build_index(
         fully indexed (embedded + stored), including cache hits.  Receives
         the file path as a string.  Used by the CLI to drive progress bars.
     full:
-        Clear source and dense indexes before rebuilding.
+        Clear the indexes and the incremental caches before rebuilding, so
+        the run starts from empty rather than layering new rows over stale
+        ones.
     """
     embedder = embedder or FastEmbedEmbedder()
     storage = storage or DuckDBAdapter(DEFAULT_DB_PATH)
@@ -208,12 +210,17 @@ def build_index(
     vector_store = vector_store or DuckDBVectorStore(DEFAULT_DB_PATH, con=_con)
 
     vector_store.setup(embedder.dims)
-    if full:
-        storage.clear_nodes()
-        vector_store.clear()
 
     if _con is not None:
         initialize_memo_store(_con)
+
+    if full:
+        # Caches go with the indexes. Dropping the nodes and vectors alone
+        # leaves process_file a memo hit for every unchanged file, so the
+        # rebuild writes nothing back and the index comes out empty.
+        storage.clear_caches()
+        storage.clear_nodes()
+        vector_store.clear()
 
     ctx = PipelineContext()
     ctx.provide(EMBEDDER, embedder)

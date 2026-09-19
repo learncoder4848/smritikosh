@@ -304,3 +304,64 @@ def test_build_index_second_run_is_idempotent(tmp_path: Path) -> None:
     chunk_ids_after_second = storage.get_chunk_ids_for_file("hello.py")
 
     assert chunk_ids_after_first == chunk_ids_after_second
+
+
+def _vector_count(con: duckdb.DuckDBPyConnection) -> int:
+    return con.execute("SELECT count(*) FROM vectors").fetchone()[0]
+
+
+def test_build_index_full_repopulates_what_it_cleared(tmp_path: Path) -> None:
+    """full=True must rebuild, not just empty.
+
+    Clearing the nodes and vectors while the memo cache still held every file
+    left process_file a cache hit with nothing to write back, so the rebuild
+    produced an empty index.
+    """
+    (tmp_path / "hello.py").write_text("def hello(): pass\n")
+
+    con = duckdb.connect(":memory:")
+    storage = DuckDBAdapter(con=con)
+    vs = DuckDBVectorStore(con=con)
+
+    build_index(str(tmp_path), embedder=_Embedder(), storage=storage, vector_store=vs)
+    chunk_ids = storage.get_chunk_ids_for_file("hello.py")
+    assert chunk_ids and _vector_count(con) == len(chunk_ids)
+
+    build_index(
+        str(tmp_path),
+        embedder=_Embedder(),
+        storage=storage,
+        vector_store=vs,
+        full=True,
+    )
+
+    assert storage.get_chunk_ids_for_file("hello.py") == chunk_ids
+    assert _vector_count(con) == len(chunk_ids)
+
+
+def test_build_index_full_drops_rows_the_sources_no_longer_produce(
+    tmp_path: Path,
+) -> None:
+    """A full rebuild starts from empty instead of layering over stale rows."""
+    (tmp_path / "hello.py").write_text("def hello(): pass\n")
+
+    con = duckdb.connect(":memory:")
+    storage = DuckDBAdapter(con=con)
+    vs = DuckDBVectorStore(con=con)
+
+    build_index(str(tmp_path), embedder=_Embedder(), storage=storage, vector_store=vs)
+
+    orphan = _make_chunk("left over from an older run", path="gone.py")
+    storage.upsert_chunk_nodes([orphan])
+    vs.upsert(orphan.id, [0.1, 0.2, 0.3, 0.4])
+
+    build_index(
+        str(tmp_path),
+        embedder=_Embedder(),
+        storage=storage,
+        vector_store=vs,
+        full=True,
+    )
+
+    assert storage.get_chunk_ids_for_file("gone.py") == set()
+    assert vs.exists(orphan.id) is False
