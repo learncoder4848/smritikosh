@@ -27,3 +27,14 @@ def test_should_rank_the_nearest_chunk_first(store: DuckDBVectorStore) -> None:
 def test_should_reject_dims_when_not_positive(store: DuckDBVectorStore) -> None:
     with pytest.raises(ValueError, match="dims must be positive"):
         store.setup(0)
+
+
+def test_should_clear_all_vectors(store: DuckDBVectorStore) -> None:
+    store.setup(4)
+    store.upsert("first", X_AXIS)
+    store.upsert("second", Y_AXIS)
+
+    store.clear()
+
+    assert store.exists("first") is False
+    assert store.exists("second") is False

@@ -172,15 +172,16 @@ def test_regex_strategy_should_split_an_oversized_section() -> None:
     assert all(len(c.text) <= 500 for c in chunks)
 
 
-def test_split_chunks_should_keep_distinct_content_addressed_ids() -> None:
-    """Ids stay content-addressed so each window memoises independently."""
+def test_split_chunks_should_keep_distinct_path_aware_ids() -> None:
+    """Ids stay distinct while content hashes remain reusable."""
     p = parsed(_MANY_CONSTANTS)
 
     chunks = SectionChunkingStrategy(max_chars=500).chunk(p, [])
 
     ids = [c.id for c in chunks]
     assert len(ids) == len(set(ids))
-    assert all(c.id == c.content_hash[:16] for c in chunks)
+    assert all(len(c.id) == 16 for c in chunks)
+    assert all(len(c.content_hash) == 64 for c in chunks)
 
 
 def test_split_chunks_should_report_line_numbers_within_the_original() -> None:

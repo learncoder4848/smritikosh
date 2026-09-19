@@ -193,6 +193,10 @@ class DuckDBAdapter(StorageAdapter):
             self.con.rollback()
             raise
 
+    def clear_nodes(self) -> None:
+        """Remove all indexed source nodes."""
+        self.con.execute("DELETE FROM nodes")
+
     # ------------------------------------------------------------------ misc
 
     def close(self) -> None:

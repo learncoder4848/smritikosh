@@ -25,6 +25,10 @@ class VectorStore(ABC):
     def delete(self, chunk_id: str) -> None: ...
 
     @abstractmethod
+    def clear(self) -> None:
+        """Remove every stored vector."""
+
+    @abstractmethod
     def exists(self, chunk_id: str) -> bool: ...
 
     @abstractmethod

@@ -55,3 +55,7 @@ class StorageAdapter(ABC):
     @abstractmethod
     def delete_file(self, path: str) -> None:
         """Atomically remove all nodes and the file_hash for *path*."""
+
+    @abstractmethod
+    def clear_nodes(self) -> None:
+        """Remove all indexed source nodes."""

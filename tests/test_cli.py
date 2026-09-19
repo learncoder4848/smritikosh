@@ -166,7 +166,7 @@ def test_index_full_clears_caches_before_build(runner, repo, db_path) -> None:
 
     assert result.exit_code == 0
     assert call_order == ["clear", "build"]
-    assert "Cleared incremental caches" in result.output
+    assert "Cleared indexes and incremental caches" in result.output
 
 
 def test_index_full_calls_clear_caches_on_storage(runner, repo, db_path) -> None:
