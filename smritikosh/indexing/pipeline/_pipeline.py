@@ -25,6 +25,7 @@ from smritikosh.indexing.pipeline._stages import _chunk, _extract, _parse
 from smritikosh.indexing.strategies._helpers import budget_chars
 from smritikosh.models import Chunk, SourceFile
 from smritikosh.ports.embedder import Embedder
+from smritikosh.ports.retrieval import LexicalStore
 from smritikosh.ports.storage import StorageAdapter
 from smritikosh.ports.vector_store import VectorStore
 
@@ -34,6 +35,7 @@ from smritikosh.ports.vector_store import VectorStore
 EMBEDDER: ContextKey[Embedder] = ContextKey("embedder", detect_change=True)
 STORAGE: ContextKey[StorageAdapter] = ContextKey("storage")
 VECTOR_STORE: ContextKey[VectorStore] = ContextKey("vector_store")
+LEXICAL_STORE: ContextKey[LexicalStore] = ContextKey("lexical_store")
 
 
 # ── Per-chunk embedding ───────────────────────────────────────────────────────
@@ -71,7 +73,7 @@ def _embed_one(texts: list[str]) -> list[list[float]]:
 
 @sm.tracked
 async def process_chunk(chunk: Chunk) -> None:
-    """Embed and upsert one chunk; skip if content_hash is unchanged."""
+    """Embed and upsert one chunk; skip when its location and text are unchanged."""
     vector_store = use_context(VECTOR_STORE)
     if vector_store.exists(chunk.id):
         return
@@ -87,6 +89,7 @@ async def process_file(source: SourceFile) -> None:
     """Parse → extract → chunk → embed one source file incrementally."""
     storage = use_context(STORAGE)
     vector_store = use_context(VECTOR_STORE)
+    lexical_store = use_context(LEXICAL_STORE)
 
     old_ids = storage.get_chunk_ids_for_file(source.path)
     parsed = await _parse(source)
@@ -97,9 +100,11 @@ async def process_file(source: SourceFile) -> None:
     for stale_id in old_ids - new_ids:
         storage.delete_chunk_node(stale_id)
         vector_store.delete(stale_id)
+        lexical_store.delete(stale_id)
 
     storage.upsert_file_node(source)
     storage.upsert_chunk_nodes(chunks)
+    lexical_store.upsert(chunks)
     await sm.gather(process_chunk, chunks)
 
     # Write file hash after success — a crash forces full re-process next run.
@@ -123,6 +128,7 @@ async def _run_pipeline(
     storage = use_context(STORAGE)
     embedder = use_context(EMBEDDER)
     vector_store = use_context(VECTOR_STORE)
+    lexical_store = use_context(LEXICAL_STORE)
     file_source = LocalFileSource(repo_path)
     # Chunks are capped at what this model actually encodes — an over-long
     # chunk would be stored whole but embedded from its prefix only.
@@ -137,6 +143,7 @@ async def _run_pipeline(
         deleted_chunk_ids: set[str] = storage.get_chunk_ids_for_file(deleted)
         for chunk_id in deleted_chunk_ids:
             vector_store.delete(chunk_id)
+        lexical_store.delete_path(deleted)
         storage.delete_file(deleted)
         memo_store.delete_component("process_file", deleted)
 
@@ -175,6 +182,7 @@ def build_index(
     file_concurrency: int | None = None,
     on_file_indexed: Callable[[str], None] | None = None,
     *,
+    lexical_store: LexicalStore | None = None,
     full: bool = False,
 ) -> None:
     """Build or incrementally update the vector index for *repo_path*.
@@ -196,8 +204,10 @@ def build_index(
         Optional callback called once per source file after it has been
         fully indexed (embedded + stored), including cache hits.  Receives
         the file path as a string.  Used by the CLI to drive progress bars.
+    lexical_store:
+        Defaults to DuckDBBm25Store sharing the storage connection.
     full:
-        Clear source and dense indexes before rebuilding.
+        Clear source, dense, and lexical indexes before rebuilding.
     """
     embedder = embedder or FastEmbedEmbedder()
     storage = storage or DuckDBAdapter(DEFAULT_DB_PATH)
@@ -206,11 +216,17 @@ def build_index(
     # Adapters without .con skip memoization and always re-evaluate the pipeline.
     _con = getattr(storage, "con", None)
     vector_store = vector_store or DuckDBVectorStore(DEFAULT_DB_PATH, con=_con)
+    if lexical_store is None:
+        from smritikosh.adapters.retrieval.duckdb import DuckDBBm25Store
+
+        lexical_store = DuckDBBm25Store(DEFAULT_DB_PATH, con=_con)
 
     vector_store.setup(embedder.dims)
+    lexical_store.setup()
     if full:
         storage.clear_nodes()
         vector_store.clear()
+        lexical_store.clear()
 
     if _con is not None:
         initialize_memo_store(_con)
@@ -219,6 +235,7 @@ def build_index(
     ctx.provide(EMBEDDER, embedder)
     ctx.provide(STORAGE, storage)
     ctx.provide(VECTOR_STORE, vector_store)
+    ctx.provide(LEXICAL_STORE, lexical_store)
 
     with ctx:
         asyncio.run(
