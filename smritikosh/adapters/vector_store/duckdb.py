@@ -80,6 +80,11 @@ class DuckDBVectorStore(VectorStore):
     def delete(self, chunk_id: str) -> None:
         self._con.execute("DELETE FROM vectors WHERE chunk_id = ?", [chunk_id])
 
+    def clear(self) -> None:
+        """Remove every stored vector without changing model metadata."""
+        if self._table_exists("vectors"):
+            self._con.execute("DELETE FROM vectors")
+
     def exists(self, chunk_id: str) -> bool:
         row = self._con.execute(
             "SELECT 1 FROM vectors WHERE chunk_id = ?", [chunk_id]
