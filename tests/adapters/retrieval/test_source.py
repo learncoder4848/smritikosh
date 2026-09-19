@@ -9,6 +9,7 @@ import duckdb
 import pytest
 
 from smritikosh.adapters.retrieval.source import DuckDBSourceReader
+from smritikosh.ports.source_reader import SourceReader
 
 
 @pytest.fixture()
@@ -107,3 +108,18 @@ def test_returns_nothing_for_no_ids(reader: DuckDBSourceReader) -> None:
 
 def test_ignores_nodes_that_are_not_chunks(reader: DuckDBSourceReader) -> None:
     assert reader.get_chunks_by_ids(["file:billing.py"]) == {}
+
+
+# ── SourceReader contract ─────────────────────────────────────────────────────
+
+
+def test_implements_the_source_reader_port(reader: DuckDBSourceReader) -> None:
+    assert isinstance(reader, SourceReader)
+
+
+def test_leaving_the_context_closes_the_connection(reader: DuckDBSourceReader) -> None:
+    with reader as opened:
+        assert opened is reader
+
+    with pytest.raises(duckdb.ConnectionException):
+        reader.index_info()

@@ -19,6 +19,7 @@ from smritikosh.models import (
     SourceLine,
     TextMatch,
 )
+from smritikosh.ports.source_reader import SourceReader
 
 if TYPE_CHECKING:
     from smritikosh.ports.embedder import Embedder
@@ -67,7 +68,7 @@ _DOCUMENTATION_PATH_SQL: Final[str] = """
 """
 
 
-class DuckDBSourceReader:
+class DuckDBSourceReader(SourceReader):
     """Explore one Smritikosh index without acquiring a write connection."""
 
     def __init__(self, db_path: str) -> None:
@@ -79,12 +80,6 @@ class DuckDBSourceReader:
         if not Path(db_path).is_file():
             raise FileNotFoundError(f"Smritikosh index not found: {db_path}")
         self._connection = duckdb.connect(database=db_path, read_only=True)
-
-    def __enter__(self) -> DuckDBSourceReader:
-        return self
-
-    def __exit__(self, *_: object) -> None:
-        self.close()
 
     def close(self) -> None:
         """Close the read-only database connection."""

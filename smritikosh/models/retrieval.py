@@ -34,6 +34,8 @@ class IndexedChunk:
     end_line: int
     text: str
     chunk_kind: str | None
+    #: Definition this chunk came from; None for chunks that cover no single
+    #: definition, and for chunks written before symbols were recorded.
     symbol: str | None = None
 
 
