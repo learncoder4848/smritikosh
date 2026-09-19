@@ -365,3 +365,49 @@ def test_build_index_full_drops_rows_the_sources_no_longer_produce(
 
     assert storage.get_chunk_ids_for_file("gone.py") == set()
     assert vs.exists(orphan.id) is False
+
+
+def test_build_index_drops_the_vectors_of_a_deleted_source_file(
+    tmp_path: Path,
+) -> None:
+    """Removing a file must take its vectors with it.
+
+    delete_file dropped the nodes and the hash, and nothing removed the rows
+    keyed by the chunk ids it had just deleted, so they were left behind with
+    nothing pointing at them.
+    """
+    (tmp_path / "keep.py").write_text("def keep(): pass\n")
+    (tmp_path / "gone.py").write_text("def gone(): pass\n")
+
+    con = duckdb.connect(":memory:")
+    storage = DuckDBAdapter(con=con)
+    vs = DuckDBVectorStore(con=con)
+
+    build_index(str(tmp_path), embedder=_Embedder(), storage=storage, vector_store=vs)
+    gone_ids = storage.get_chunk_ids_for_file("gone.py")
+    assert gone_ids and all(vs.exists(chunk_id) for chunk_id in gone_ids)
+
+    (tmp_path / "gone.py").unlink()
+    build_index(str(tmp_path), embedder=_Embedder(), storage=storage, vector_store=vs)
+
+    assert storage.get_chunk_ids_for_file("gone.py") == set()
+    assert not any(vs.exists(chunk_id) for chunk_id in gone_ids)
+    assert storage.get_chunk_ids_for_file("keep.py"), "surviving file was collateral"
+
+
+def test_build_index_reports_every_file_to_the_callback(tmp_path: Path) -> None:
+    (tmp_path / "one.py").write_text("def one(): pass\n")
+    (tmp_path / "two.py").write_text("def two(): pass\n")
+
+    con = duckdb.connect(":memory:")
+    seen: list[str] = []
+
+    build_index(
+        str(tmp_path),
+        embedder=_Embedder(),
+        storage=DuckDBAdapter(con=con),
+        vector_store=DuckDBVectorStore(con=con),
+        on_file_indexed=seen.append,
+    )
+
+    assert sorted(seen) == ["one.py", "two.py"]
