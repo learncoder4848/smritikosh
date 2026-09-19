@@ -122,6 +122,7 @@ async def _run_pipeline(
     """Discover files, clean up deleted ones, fan out process_file."""
     storage = use_context(STORAGE)
     embedder = use_context(EMBEDDER)
+    vector_store = use_context(VECTOR_STORE)
     file_source = LocalFileSource(repo_path)
     # Chunks are capped at what this model actually encodes — an over-long
     # chunk would be stored whole but embedded from its prefix only.
@@ -133,6 +134,9 @@ async def _run_pipeline(
     memo_store = get_memo_store()
 
     for deleted in stored_paths - current_paths:
+        deleted_chunk_ids: set[str] = storage.get_chunk_ids_for_file(deleted)
+        for chunk_id in deleted_chunk_ids:
+            vector_store.delete(chunk_id)
         storage.delete_file(deleted)
         memo_store.delete_component("process_file", deleted)
 
@@ -170,6 +174,8 @@ def build_index(
     vector_store: VectorStore | None = None,
     file_concurrency: int | None = None,
     on_file_indexed: Callable[[str], None] | None = None,
+    *,
+    full: bool = False,
 ) -> None:
     """Build or incrementally update the vector index for *repo_path*.
 
@@ -190,6 +196,8 @@ def build_index(
         Optional callback called once per source file after it has been
         fully indexed (embedded + stored), including cache hits.  Receives
         the file path as a string.  Used by the CLI to drive progress bars.
+    full:
+        Clear source and dense indexes before rebuilding.
     """
     embedder = embedder or FastEmbedEmbedder()
     storage = storage or DuckDBAdapter(DEFAULT_DB_PATH)
@@ -200,6 +208,9 @@ def build_index(
     vector_store = vector_store or DuckDBVectorStore(DEFAULT_DB_PATH, con=_con)
 
     vector_store.setup(embedder.dims)
+    if full:
+        storage.clear_nodes()
+        vector_store.clear()
 
     if _con is not None:
         initialize_memo_store(_con)
