@@ -134,9 +134,8 @@ async def _run_pipeline(
     memo_store = get_memo_store()
 
     for deleted in stored_paths - current_paths:
-        deleted_chunk_ids: set[str] = storage.get_chunk_ids_for_file(deleted)
-        for chunk_id in deleted_chunk_ids:
-            vector_store.delete(chunk_id)
+        # Read the ids before delete_file drops the nodes that carry them.
+        vector_store.delete_many(storage.get_chunk_ids_for_file(deleted))
         storage.delete_file(deleted)
         memo_store.delete_component("process_file", deleted)
 
