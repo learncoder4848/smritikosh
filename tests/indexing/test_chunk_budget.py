@@ -13,6 +13,8 @@ import pytest
 from smritikosh.indexing.strategies._helpers import (
     _CHARS_PER_TOKEN,
     budget_chars,
+    chunk_id,
+    content_hash,
     split_oversized,
 )
 from smritikosh.indexing.strategies.ast import AstChunkingStrategy
@@ -180,8 +182,10 @@ def test_split_chunks_should_keep_distinct_path_aware_ids() -> None:
 
     ids = [c.id for c in chunks]
     assert len(ids) == len(set(ids))
-    assert all(len(c.id) == 16 for c in chunks)
-    assert all(len(c.content_hash) == 64 for c in chunks)
+    assert all(
+        c.id == chunk_id(c.path, c.text, c.start_line, c.end_line) for c in chunks
+    )
+    assert all(c.content_hash == content_hash(c.text) for c in chunks)
 
 
 def test_split_chunks_should_report_line_numbers_within_the_original() -> None:

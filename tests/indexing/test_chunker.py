@@ -62,15 +62,17 @@ def test_should_register_chunk_and_strategy_logic_for_memo_invalidation() -> Non
     } <= _tracked_logic_fps
 
 
-def test_should_build_stable_content_addressed_chunk_ids() -> None:
+def test_should_build_stable_ids_from_path_lines_and_text() -> None:
+    """Pins the id formula itself — every other test reaches it through ``cid``."""
     text = "def foo(): pass"
+    identity = "\0".join(["a.py", "1:1", text])
+    expected_id = hashlib.sha256(identity.encode()).hexdigest()[:16]
     expected_hash = hashlib.sha256(text.encode()).hexdigest()
 
     first = build_chunk("a.py", text, "function", 1, 1)
     second = build_chunk("a.py", text, "function", 1, 1)
 
-    assert first.id == second.id == chunk_id("a.py", text, 1, 1)
-    assert first.id == cid(text, "a.py")
+    assert first.id == second.id == expected_id == chunk_id("a.py", text, 1, 1)
     assert first.content_hash == expected_hash == content_hash(text)
 
 

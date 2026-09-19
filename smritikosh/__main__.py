@@ -5,8 +5,6 @@ The ``smritikosh`` console script only works when the installing environment's
 on macOS. Importing the package is enough to reach the CLI this way.
 """
 
-from __future__ import annotations
-
 from smritikosh.cli import main
 
 if __name__ == "__main__":
